@@ -155,6 +155,28 @@
             border-bottom-color: var(--accent-blue);
         }
 
+        .refresh-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-family: 'Libre Baskerville', serif;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: var(--accent-dark);
+            transform: translateY(-1px);
+        }
+
+        .refresh-btn.updating {
+            background: var(--accent-gold);
+            pointer-events: none;
+        }
+
         /* 메인 컨테이너 */
         .newspaper-container {
             max-width: 1200px;
@@ -408,7 +430,7 @@
             font-weight: 600;
         }
 
-        /* 모달 */
+        /* 모바일 최적화된 모달 */
         .modal {
             display: none;
             position: fixed;
@@ -423,67 +445,76 @@
 
         .modal.active {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            padding: 2rem;
+            padding: 1rem;
         }
 
         .modal-content {
             background: white;
             max-width: 800px;
             width: 100%;
-            max-height: 90vh;
+            max-height: calc(100vh - 2rem);
             overflow-y: auto;
             position: relative;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-top: 1rem;
         }
 
         .modal-header {
-            padding: 2rem;
+            padding: 1.5rem;
             border-bottom: 2px solid var(--newspaper-border);
             background: var(--newspaper-cream);
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         .modal-title {
             font-family: 'Playfair Display', serif;
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            line-height: 1.3;
+            line-height: 1.4;
             margin-bottom: 1rem;
             color: var(--newspaper-black);
+            word-break: keep-all;
+            overflow-wrap: break-word;
         }
 
         .modal-meta {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             flex-wrap: wrap;
             gap: 1rem;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--newspaper-light-gray);
         }
 
         .modal-body {
-            padding: 2rem;
+            padding: 1.5rem;
         }
 
         .modal-image {
             width: 100%;
-            height: 300px;
+            height: 250px;
             object-fit: cover;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             border: 1px solid var(--newspaper-border);
         }
 
         .modal-text {
-            font-size: 1.1rem;
+            font-size: 1rem;
             line-height: 1.8;
             color: var(--newspaper-gray);
             margin-bottom: 2rem;
+            word-break: keep-all;
+            overflow-wrap: break-word;
         }
 
         .modal-text p {
             margin: 1rem 0;
+            text-align: justify;
         }
 
         .modal-text ul {
@@ -493,10 +524,13 @@
         }
 
         .modal-text li {
-            margin: 0.8rem 0;
+            margin: 1rem 0;
             padding-left: 1.2rem;
             position: relative;
-            line-height: 1.7;
+            line-height: 1.8;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+            text-align: justify;
         }
 
         .modal-text li::before {
@@ -508,20 +542,19 @@
         }
 
         .modal-footer {
-            padding: 1.5rem 2rem;
+            padding: 1.5rem;
             border-top: 1px solid var(--newspaper-border);
             background: var(--newspaper-cream);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
         }
 
         .modal-keywords {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
+            margin-bottom: 1rem;
         }
 
         .keyword-tag {
@@ -530,6 +563,12 @@
             padding: 0.3rem 0.8rem;
             font-size: 0.8rem;
             font-weight: 500;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
         .read-original-btn {
@@ -541,6 +580,9 @@
             transition: all 0.3s ease;
             border: none;
             cursor: pointer;
+            flex: 1;
+            text-align: center;
+            min-width: 120px;
         }
 
         .read-original-btn:hover {
@@ -552,16 +594,23 @@
             position: absolute;
             top: 1rem;
             right: 1rem;
-            background: none;
+            background: rgba(0,0,0,0.1);
             border: none;
-            font-size: 2rem;
-            color: var(--newspaper-light-gray);
+            font-size: 1.5rem;
+            color: var(--newspaper-black);
             cursor: pointer;
-            transition: color 0.3s ease;
+            transition: all 0.3s ease;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .close-modal:hover {
-            color: var(--newspaper-black);
+            background: rgba(0,0,0,0.2);
+            transform: scale(1.1);
         }
 
         /* 로딩 상태 */
@@ -702,19 +751,83 @@
                 font-size: 1.2rem;
             }
 
-            .modal-content {
-                margin: 1rem;
-                max-height: calc(100vh - 2rem);
+            /* 모바일 모달 최적화 */
+            .modal.active {
+                padding: 0;
+                align-items: stretch;
             }
 
-            .modal-header,
-            .modal-body,
-            .modal-footer {
-                padding: 1.5rem;
+            .modal-content {
+                max-height: 100vh;
+                margin-top: 0;
+                border-radius: 0;
+            }
+
+            .modal-header {
+                padding: 1rem;
             }
 
             .modal-title {
-                font-size: 1.5rem;
+                font-size: 1.3rem;
+                line-height: 1.3;
+                margin-bottom: 0.8rem;
+            }
+
+            .modal-meta {
+                font-size: 0.8rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .modal-body {
+                padding: 1rem;
+            }
+
+            .modal-image {
+                height: 200px;
+                margin-bottom: 1rem;
+            }
+
+            .modal-text {
+                font-size: 0.95rem;
+                line-height: 1.7;
+            }
+
+            .modal-text li {
+                margin: 0.8rem 0;
+                line-height: 1.6;
+            }
+
+            .modal-footer {
+                padding: 1rem;
+            }
+
+            .modal-keywords {
+                margin-bottom: 0.8rem;
+            }
+
+            .keyword-tag {
+                font-size: 0.75rem;
+                padding: 0.25rem 0.6rem;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+
+            .read-original-btn {
+                padding: 0.8rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .close-modal {
+                top: 0.5rem;
+                right: 0.5rem;
+                width: 35px;
+                height: 35px;
+                font-size: 1.3rem;
             }
         }
 
@@ -755,7 +868,8 @@
         .news-article:focus,
         .nav-item:focus,
         .read-original-btn:focus,
-        .retry-btn:focus {
+        .retry-btn:focus,
+        .refresh-btn:focus {
             outline: 2px solid var(--accent-blue);
             outline-offset: 2px;
         }
@@ -780,9 +894,38 @@
                 background: #333;
             }
         }
+
+        /* 업데이트 상태 표시 */
+        .update-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--accent-green);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 1001;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .update-status.show {
+            transform: translateX(0);
+        }
+
+        .update-status.error {
+            background: #dc3545;
+        }
     </style>
 </head>
 <body>
+    <!-- 업데이트 상태 알림 -->
+    <div id="updateStatus" class="update-status">
+        <i class="fas fa-check"></i> 업데이트 완료
+    </div>
+
     <!-- 신문 헤더 -->
     <header class="newspaper-masthead">
         <div class="masthead-content">
@@ -816,8 +959,8 @@
             <a href="#japan" class="nav-item" data-section="japan">
                 <i class="fas fa-torii-gate"></i> 일본뉴스
             </a>
-            <button id="refreshBtn" class="nav-item" style="border: none; background: none; cursor: pointer;">
-                <i class="fas fa-sync-alt"></i> 새로고침
+            <button id="refreshBtn" class="refresh-btn">
+                <i class="fas fa-sync-alt"></i> 강제 새로고침
             </button>
         </div>
     </nav>
@@ -838,8 +981,8 @@
                 </div>
                 <h2 class="error-title">뉴스를 불러올 수 없습니다</h2>
                 <p class="error-message" id="errorMessage">네트워크 연결을 확인하고 다시 시도해주세요.</p>
-                <button class="retry-btn" onclick="loadNews()">
-                    <i class="fas fa-redo"></i> 다시 시도
+                <button class="retry-btn" onclick="forceRefresh()">
+                    <i class="fas fa-redo"></i> 강제 새로고침
                 </button>
             </div>
 
@@ -924,7 +1067,7 @@
         </aside>
     </div>
 
-    <!-- 뉴스 상세 모달 -->
+    <!-- 뉴스 상세 모달 (모바일 최적화) -->
     <div id="newsModal" class="modal">
         <div class="modal-content">
             <button class="close-modal" onclick="closeModal()">
@@ -959,9 +1102,11 @@
                 <div class="modal-keywords" id="modalKeywords">
                     <!-- 키워드들이 여기에 표시됩니다 -->
                 </div>
-                <a id="modalLink" href="#" target="_blank" class="read-original-btn">
-                    <i class="fas fa-external-link-alt"></i> 원문 보기
-                </a>
+                <div class="modal-actions">
+                    <a id="modalLink" href="#" target="_blank" class="read-original-btn">
+                        <i class="fas fa-external-link-alt"></i> 원문 보기
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -973,10 +1118,11 @@
         let countdownInterval = null;
         let countdownSeconds = 600; // 10분
         let isUpdating = false;
+        let lastUpdateTimestamp = null;
 
         // 초기화
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('📰 EmarkNews 종이신문 스타일 시스템 시작');
+            console.log('📰 EmarkNews 모바일 최적화 시스템 시작');
             
             // 현재 시간 업데이트
             updateDateTime();
@@ -1028,8 +1174,8 @@
                 });
             });
 
-            // 새로고침 버튼
-            document.getElementById('refreshBtn').addEventListener('click', manualRefresh);
+            // 강제 새로고침 버튼
+            document.getElementById('refreshBtn').addEventListener('click', forceRefresh);
 
             // 모달 외부 클릭 시 닫기
             document.getElementById('newsModal').addEventListener('click', (e) => {
@@ -1044,11 +1190,80 @@
                     closeModal();
                 }
             });
+
+            // 터치 이벤트 (모바일)
+            let touchStartY = 0;
+            document.getElementById('newsModal').addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+            });
+
+            document.getElementById('newsModal').addEventListener('touchend', (e) => {
+                const touchEndY = e.changedTouches[0].clientY;
+                const diff = touchStartY - touchEndY;
+                
+                // 위로 스와이프하면 모달 닫기
+                if (diff < -100 && e.target.id === 'newsModal') {
+                    closeModal();
+                }
+            });
         }
 
-        // 뉴스 로드
-        async function loadNews() {
+        // 강제 새로고침 (캐시 무효화)
+        async function forceRefresh() {
             if (isUpdating) {
+                console.log('⚠️ 이미 업데이트 중입니다.');
+                return;
+            }
+
+            const refreshBtn = document.getElementById('refreshBtn');
+            const icon = refreshBtn.querySelector('i');
+            
+            // 버튼 상태 변경
+            refreshBtn.classList.add('updating');
+            refreshBtn.disabled = true;
+            icon.style.animation = 'spin 1s linear infinite';
+            refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 업데이트 중...';
+
+            try {
+                // 강제 캐시 무효화를 위한 타임스탬프 추가
+                const timestamp = Date.now();
+                lastUpdateTimestamp = timestamp;
+                
+                console.log('🔄 강제 새로고침 시작 - 타임스탬프:', timestamp);
+                
+                await loadNews(true, timestamp);
+                
+                // 성공 알림 표시
+                showUpdateStatus('업데이트 완료!', 'success');
+                
+            } catch (error) {
+                console.error('❌ 강제 새로고침 실패:', error);
+                showUpdateStatus('업데이트 실패', 'error');
+            } finally {
+                // 버튼 상태 복원
+                setTimeout(() => {
+                    refreshBtn.classList.remove('updating');
+                    refreshBtn.disabled = false;
+                    icon.style.animation = '';
+                    refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 강제 새로고침';
+                }, 1000);
+            }
+        }
+
+        // 업데이트 상태 알림 표시
+        function showUpdateStatus(message, type = 'success') {
+            const statusEl = document.getElementById('updateStatus');
+            statusEl.textContent = message;
+            statusEl.className = `update-status ${type} show`;
+            
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 3000);
+        }
+
+        // 뉴스 로드 (강제 새로고침 지원)
+        async function loadNews(forceRefresh = false, timestamp = null) {
+            if (isUpdating && !forceRefresh) {
                 console.log('⚠️ 이미 업데이트 중입니다.');
                 return;
             }
@@ -1057,16 +1272,23 @@
             showLoadingState();
             
             try {
-                console.log('📡 뉴스 데이터 요청 중...');
+                console.log('📡 뉴스 데이터 요청 중...', forceRefresh ? '(강제 새로고침)' : '');
                 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                const timeoutId = setTimeout(() => controller.abort(), 20000); // 20초 타임아웃
                 
-                const response = await fetch('/api/news', {
+                // 강제 새로고침 시 캐시 무효화 파라미터 추가
+                let url = '/api/news';
+                if (forceRefresh && timestamp) {
+                    url += `?_t=${timestamp}&_force=true`;
+                }
+                
+                const response = await fetch(url, {
                     signal: controller.signal,
                     headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
+                        'Cache-Control': forceRefresh ? 'no-cache, no-store, must-revalidate' : 'no-cache',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
                     }
                 });
                 
@@ -1077,11 +1299,16 @@
                 }
                 
                 const rawData = await response.text();
-                console.log('📥 원시 데이터 수신:', rawData.substring(0, 200) + '...');
+                console.log('📥 원시 데이터 수신 길이:', rawData.length);
                 
                 try {
                     newsData = JSON.parse(rawData);
-                    console.log('✅ JSON 파싱 성공:', newsData);
+                    console.log('✅ JSON 파싱 성공:', {
+                        world: newsData.sections?.world?.length || 0,
+                        korea: newsData.sections?.korea?.length || 0,
+                        japan: newsData.sections?.japan?.length || 0,
+                        trending: newsData.trending?.length || 0
+                    });
                 } catch (parseError) {
                     console.error('❌ JSON 파싱 실패:', parseError);
                     throw new Error('JSON 파싱 실패: ' + parseError.message);
@@ -1099,20 +1326,6 @@
             } finally {
                 isUpdating = false;
             }
-        }
-
-        // 수동 새로고침
-        async function manualRefresh() {
-            const refreshBtn = document.getElementById('refreshBtn');
-            const icon = refreshBtn.querySelector('i');
-            
-            icon.style.animation = 'spin 1s linear infinite';
-            
-            await loadNews();
-            
-            setTimeout(() => {
-                icon.style.animation = '';
-            }, 1000);
         }
 
         // 로딩 상태 표시
@@ -1394,7 +1607,7 @@
             return `<ul>${listItems}</ul>`;
         }
 
-        // 모달 열기
+        // 모바일 최적화된 모달 열기
         function openModal(article) {
             const modal = document.getElementById('newsModal');
             
@@ -1431,9 +1644,9 @@
             document.getElementById('modalStars').textContent = '★'.repeat(Math.min(article.stars || 3, 5));
             document.getElementById('modalCategory').textContent = article.category || '일반';
             
-            // 상세 내용 포맷팅 (** 표시 제거)
+            // 상세 내용 포맷팅 (** 표시 제거, 모바일 최적화)
             let detailedContent = article.summary || article.description || '내용 없음';
-            detailedContent = formatDetailedContent(detailedContent);
+            detailedContent = formatDetailedContentForMobile(detailedContent);
             document.getElementById('modalText').innerHTML = detailedContent;
             
             // 이미지 처리
@@ -1464,12 +1677,14 @@
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
             
-            // 포커스 설정
-            modal.querySelector('.close-modal').focus();
+            // 모바일에서 상단으로 스크롤
+            setTimeout(() => {
+                modal.scrollTop = 0;
+            }, 100);
         }
 
-        // 상세 내용 포맷팅 (** 표시 제거)
-        function formatDetailedContent(text) {
+        // 모바일 최적화된 상세 내용 포맷팅
+        function formatDetailedContentForMobile(text) {
             if (!text) return '';
             
             // ** 표시 완전 제거
@@ -1483,12 +1698,13 @@
                 return `<p>${text}</p>`;
             }
             
-            // 각 줄을 블릿 포인트로 변환
+            // 각 줄을 블릿 포인트로 변환 (모바일 최적화)
             const listItems = lines.map(line => {
-                if (line.trim().startsWith('•')) {
-                    return `<li>${line.trim().substring(1).trim()}</li>`;
+                let cleanLine = line.trim();
+                if (cleanLine.startsWith('•')) {
+                    cleanLine = cleanLine.substring(1).trim();
                 }
-                return `<li>${line.trim()}</li>`;
+                return `<li>${cleanLine}</li>`;
             }).join('');
             
             return `<ul>${listItems}</ul>`;
