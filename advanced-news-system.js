@@ -842,14 +842,15 @@ class PremiumMultiAPINewsSystem {
             cacheSize: this.newsCache.size,
             translationCacheSize: this.translationCache.size,
             lastUpdate: new Date().toISOString(),
+            cacheVersion: Date.now(), // 캐시 무력화용 버전
             apiSources: {
                 naver: !!this.apis.naver.clientId,
                 newsapi: !!this.apis.newsapi.apiKey,
                 youtube: !!this.apis.youtube.apiKey,
                 openai: !!process.env.OPENAI_API_KEY
             },
-            premiumFeatures: ['multi-api', 'ai-translation', 'duplicate-removal', 'quality-scoring', 'urgency-analysis'],
-            version: '3.0.0-premium-translation'
+            premiumFeatures: ['multi-api', 'ai-translation', 'duplicate-removal', 'quality-scoring', 'urgency-analysis', 'cache-busting'],
+            version: '3.0.1-premium-cache-busting'
         };
     }
 
@@ -858,18 +859,18 @@ class PremiumMultiAPINewsSystem {
         const now = new Date().toISOString();
         const defaultArticle = {
             id: 'premium-v3-1',
-            title: 'EmarkNews 프리미엄 v3.0 AI 번역 시스템 활성화',
-            description: '네이버 뉴스 API, NewsAPI 유료 버전, YouTube API를 통합하고 OpenAI 번역 시스템을 추가하여 실시간 다국어 뉴스를 한국어로 제공합니다. 고급 품질 평가, 긴급도 분석, 중복 제거 등 프리미엄 기능이 포함되어 있습니다.',
+            title: 'EmarkNews 프리미엄 v3.0.1 캐시 무력화 시스템 활성화',
+            description: '네이버 뉴스 API, NewsAPI 유료 버전, YouTube API를 통합하고 OpenAI 번역 시스템을 추가하여 실시간 다국어 뉴스를 한국어로 제공합니다. 고급 품질 평가, 긴급도 분석, 중복 제거, 캐시 무력화 등 프리미엄 기능이 포함되어 있습니다.',
             url: '#',
             urlToImage: null,
             publishedAt: now,
-            source: { id: 'emarknews', name: 'EmarkNews Premium v3.0' },
+            source: { id: 'emarknews', name: 'EmarkNews Premium v3.0.1' },
             category: '시스템',
             urgency: 4,
             importance: 5,
             buzz: 4,
             stars: 5,
-            keywords: ['프리미엄', 'AI번역', '다중API', '고품질'],
+            keywords: ['프리미엄', 'AI번역', '다중API', '고품질', '캐시무력화'],
             sentiment: '긍정',
             qualityScore: 20,
             isTranslated: false
@@ -881,11 +882,11 @@ class PremiumMultiAPINewsSystem {
                 korea: [{ ...defaultArticle, id: 'premium-v3-2', title: '네이버 뉴스 API 프리미엄 연동 완료' }],
                 japan: [{ ...defaultArticle, id: 'premium-v3-3', title: 'NewsAPI 유료 + YouTube 프리미엄 활성화' }]
             },
-            trending: [['프리미엄', 15], ['AI번역', 12], ['다중API', 10], ['고품질', 8]],
+            trending: [['프리미엄', 15], ['AI번역', 12], ['다중API', 10], ['고품질', 8], ['캐시무력화', 6]],
             lastUpdated: now,
             totalArticles: 3,
             systemStatus: this.getSystemStatus(),
-            version: '3.0.0-premium-translation'
+            version: '3.0.1-premium-cache-busting'
         };
     }
 
