@@ -1,0 +1,762 @@
+const https = require('https');
+const http = require('http');
+
+class AdvancedNewsSystem {
+  constructor() {
+    this.newsCache = new Map();
+    this.translationCache = new Map();
+    this.duplicateCache = new Set();
+    this.trendingTopics = new Map();
+    
+    // 소스 신뢰도
+    this.sourceReliability = new Map([
+      ['bbc-news', 0.95], ['reuters', 0.95], ['cnn', 0.85],
+      ['bloomberg', 0.90], ['associated-press', 0.95],
+      ['the-guardian-uk', 0.85], ['the-new-york-times', 0.90],
+      ['the-washington-post', 0.85], ['abc-news', 0.80]
+    ]);
+    
+    // YouTube 채널 (상위 3개만 선별)
+    this.youtubeChannels = [
+      'UCupvZG-5ko_eiXAupbDfxWw', // CNN
+      'UCV3Nm3T-XAgVhKH9jT0ViRg', // BBC News
+      'UCeY0bbntWzzVIaj2z3QigXg'  // NBC News
+    ];
+    
+    // 안정적인 RSS 피드 (2개만)
+    this.rssFeeds = [
+      'https://feeds.bbci.co.uk/news/world/rss.xml',
+      'https://www.theguardian.com/world/rss'
+    ];
+    
+    this.stopWords = new Set([
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'
+    ]);
+    
+    console.log('🚀 병렬 처리 뉴스 시스템 초기화 완료');
+  }
+
+  // 빠른 HTTP 요청 (짧은 타임아웃, 재시도 최소화)
+  async makeRequest(url, options = {}) {
+    const timeout = options.timeout || 4000; // 4초로 단축
+    const maxRetries = options.maxRetries || 1; // 재시도 1회로 제한
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await this._singleRequest(url, timeout);
+      } catch (error) {
+        if (attempt === maxRetries) {
+          console.warn(`❌ API 요청 실패 (${attempt}회 시도): ${url.substring(0, 50)}...`);
+          throw error;
+        }
+        await this._sleep(500); // 재시도 간격 단축
+      }
+    }
+  }
+
+  _singleRequest(url, timeout) {
+    return new Promise((resolve, reject) => {
+      const protocol = url.startsWith('https:') ? https : http;
+      
+      const timer = setTimeout(() => {
+        reject(new Error('타임아웃'));
+      }, timeout);
+      
+      const req = protocol.get(url, { 
+        headers: {
+          'User-Agent': 'EmarkNews/3.0 (Fast News Aggregator)',
+          'Accept': 'application/json, application/xml, text/xml, */*'
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          clearTimeout(timer);
+          try {
+            if (res.headers['content-type']?.includes('application/json')) {
+              resolve(JSON.parse(data));
+            } else {
+              resolve(data);
+            }
+          } catch (error) {
+            reject(new Error(`파싱 오류: ${error.message}`));
+          }
+        });
+      });
+      
+      req.on('timeout', () => {
+        clearTimeout(timer);
+        req.destroy();
+        reject(new Error('타임아웃'));
+      });
+      
+      req.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+  }
+
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // 빠른 번역 함수 (캐시 우선, 간단한 로직)
+  async translateText(text, isLongText = false) {
+    if (!text || text.length < 5) return text;
+    
+    // 캐시 확인
+    const cacheKey = text.substring(0, 50);
+    if (this.translationCache.has(cacheKey)) {
+      return this.translationCache.get(cacheKey);
+    }
+    
+    try {
+      let translatedText = text;
+      
+      // OpenAI 번역 (빠른 설정)
+      if (process.env.OPENAI_API_KEY) {
+        translatedText = await this.quickTranslateWithOpenAI(text, isLongText);
+      } else {
+        // 기본 번역 사용
+        translatedText = this.basicTranslation(text);
+      }
+      
+      // 캐시 저장 (크기 제한)
+      if (this.translationCache.size < 100) {
+        this.translationCache.set(cacheKey, translatedText);
+      }
+      
+      return translatedText;
+      
+    } catch (error) {
+      console.warn('번역 실패, 기본 번역 사용:', error.message);
+      return this.basicTranslation(text);
+    }
+  }
+
+  // 빠른 OpenAI 번역 (토큰 수 최소화)
+  async quickTranslateWithOpenAI(text, isLongText) {
+    const maxTokens = isLongText ? 300 : 100; // 토큰 수 제한
+    const prompt = isLongText 
+      ? `다음을 한국어로 번역: ${text.substring(0, 200)}...` // 텍스트 길이 제한
+      : `한국어로 번역: ${text}`;
+    
+    const requestBody = JSON.stringify({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "간단하고 자연스러운 한국어로 번역해주세요."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.1 // 일관성을 위해 낮게 설정
+    });
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('번역 타임아웃'));
+      }, 3000); // 3초 타임아웃
+
+      const req = https.request({
+        hostname: 'api.openai.com',
+        path: '/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(requestBody)
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          clearTimeout(timer);
+          try {
+            const response = JSON.parse(data);
+            if (response.choices && response.choices[0]) {
+              resolve(response.choices[0].message.content.trim());
+            } else {
+              reject(new Error('OpenAI 응답 오류'));
+            }
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+
+      req.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      
+      req.write(requestBody);
+      req.end();
+    });
+  }
+
+  // 기본 번역 (빠른 키워드 치환)
+  basicTranslation(text) {
+    const translations = {
+      'breaking news': '속보',
+      'breaking': '속보',
+      'update': '업데이트',
+      'report': '보고서',
+      'president': '대통령',
+      'government': '정부',
+      'economy': '경제',
+      'economic': '경제',
+      'technology': '기술',
+      'tech': '기술',
+      'health': '건강',
+      'medical': '의료',
+      'sports': '스포츠',
+      'world': '세계',
+      'international': '국제',
+      'business': '비즈니스',
+      'market': '시장',
+      'stock': '주식',
+      'trade': '무역',
+      'war': '전쟁',
+      'peace': '평화',
+      'crisis': '위기',
+      'emergency': '긴급',
+      'urgent': '긴급'
+    };
+    
+    let translated = text;
+    for (const [en, ko] of Object.entries(translations)) {
+      translated = translated.replace(new RegExp(`\\b${en}\\b`, 'gi'), ko);
+    }
+    
+    return translated;
+  }
+
+  // 품질 점수 계산 (간소화)
+  calculateQualityScore(article) {
+    let score = 5; // 기본 점수
+    
+    const titleLength = article.title?.length || 0;
+    if (titleLength >= 20 && titleLength <= 100) score += 2;
+    
+    const contentLength = article.description?.length || 0;
+    if (contentLength >= 50) score += 2;
+    
+    if (article.urlToImage) score += 1;
+    
+    const sourceId = article.source?.id || '';
+    const reliability = this.sourceReliability.get(sourceId) || 0.5;
+    score += Math.round(reliability * 5);
+    
+    const publishedAt = new Date(article.publishedAt);
+    const hoursDiff = (new Date() - publishedAt) / (1000 * 60 * 60);
+    if (hoursDiff <= 24) score += 2;
+    
+    return Math.min(score, 15);
+  }
+
+  // News API (빠른 버전)
+  async fetchNews(category = 'general', country = 'us') {
+    const apiKey = process.env.NEWS_API_KEY;
+    if (!apiKey) return [];
+
+    const url = `https://newsapi.org/v2/top-headlines?country=${country}&category=${category}&pageSize=10&apiKey=${apiKey}`;
+    
+    try {
+      const data = await this.makeRequest(url, { timeout: 5000 });
+      if (data.status === 'error') throw new Error(data.message);
+      return data.articles || [];
+    } catch (error) {
+      console.error(`News API 오류 (${category}):`, error.message);
+      return [];
+    }
+  }
+
+  // YouTube 뉴스 (수정된 URL)
+  async fetchYouTubeNews() {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) return [];
+
+    const articles = [];
+    
+    // 병렬로 YouTube 채널 처리
+    const channelPromises = this.youtubeChannels.map(async (channelId) => {
+      try {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=2&order=date&type=video&key=${apiKey}`;
+        const data = await this.makeRequest(url, { timeout: 4000 });
+        
+        if (data.items) {
+          return data.items.map(item => {
+            const title = item.snippet.title.toLowerCase();
+            if (['news', 'breaking', 'report', 'update'].some(keyword => title.includes(keyword))) {
+              // 올바른 YouTube URL 형식 (수정됨)
+              const videoUrl = `https://www.youtube.com/watch?v=${item.id.videoId}&cc_load_policy=1&cc_lang_pref=ko&hl=ko`;
+              
+              return {
+                title: item.snippet.title,
+                description: item.snippet.description || '동영상 뉴스입니다.',
+                url: videoUrl,
+                urlToImage: item.snippet.thumbnails?.medium?.url,
+                publishedAt: item.snippet.publishedAt,
+                source: { id: 'youtube', name: item.snippet.channelTitle },
+                isVideo: true
+              };
+            }
+            return null;
+          }).filter(Boolean);
+        }
+        return [];
+      } catch (error) {
+        console.warn(`YouTube 채널 ${channelId} 건너뜀:`, error.message);
+        return [];
+      }
+    });
+    
+    const results = await Promise.all(channelPromises);
+    results.forEach(channelArticles => {
+      articles.push(...channelArticles);
+    });
+    
+    return articles.slice(0, 5); // 최대 5개만
+  }
+
+  // RSS 뉴스 (병렬 처리)
+  async fetchRSSNews() {
+    const feedPromises = this.rssFeeds.map(async (feedUrl) => {
+      try {
+        const xmlData = await this.makeRequest(feedUrl, { timeout: 4000 });
+        return this.parseRSS(xmlData).slice(0, 3); // 각 피드당 3개만
+      } catch (error) {
+        console.warn(`RSS 피드 건너뜀 (${feedUrl}):`, error.message);
+        return [];
+      }
+    });
+    
+    const results = await Promise.all(feedPromises);
+    const articles = [];
+    results.forEach(feedArticles => {
+      articles.push(...feedArticles);
+    });
+    
+    return articles;
+  }
+
+  parseRSS(xmlData) {
+    const articles = [];
+    const itemRegex = /<item[^>]*>(.*?)<\/item>/gs;
+    
+    let match;
+    while ((match = itemRegex.exec(xmlData)) !== null && articles.length < 5) {
+      try {
+        const item = match[1];
+        const title = this.extractXMLContent(item, 'title');
+        const description = this.extractXMLContent(item, 'description');
+        const link = this.extractXMLContent(item, 'link');
+        const pubDate = this.extractXMLContent(item, 'pubDate');
+        
+        if (title && link) {
+          articles.push({
+            title: this.stripHtml(title),
+            description: this.stripHtml(description) || '내용이 없습니다.',
+            url: link,
+            publishedAt: pubDate || new Date().toISOString(),
+            source: { id: 'rss', name: 'RSS Feed' }
+          });
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+    
+    return articles;
+  }
+
+  extractXMLContent(xml, tag) {
+    const regex = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[(.*?)\\]\\]></${tag}>|<${tag}[^>]*>(.*?)</${tag}>`, 's');
+    const match = regex.exec(xml);
+    return match ? (match[1] || match[2] || '').trim() : '';
+  }
+
+  stripHtml(html) {
+    return html ? html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim() : '';
+  }
+
+  // 간단한 기사 분석
+  async analyzeArticle(article) {
+    const title = article.title?.toLowerCase() || '';
+    const description = (article.description || '').toLowerCase();
+    const text = `${title} ${description}`;
+    
+    // 빠른 카테고리 분석
+    let category = '일반';
+    const categories = {
+      '정치': ['politic', 'election', 'government'],
+      '경제': ['econom', 'market', 'business', 'finance'],
+      '기술': ['technolog', 'ai', 'tech', 'digital'],
+      '스포츠': ['sport', 'game', 'match'],
+      '건강': ['health', 'medical', 'hospital'],
+      '국제': ['international', 'world', 'global']
+    };
+    
+    for (const [cat, keywords] of Object.entries(categories)) {
+      if (keywords.some(keyword => text.includes(keyword))) {
+        category = cat;
+        break;
+      }
+    }
+    
+    // 간단한 긴급도/중요도 계산
+    let urgency = 2;
+    if (text.match(/breaking|urgent|emergency|crisis/)) urgency = 5;
+    else if (text.match(/important|major|significant/)) urgency = 4;
+    else if (text.match(/update|latest|developing/)) urgency = 3;
+    
+    let importance = 3;
+    if (text.match(/crisis|war|disaster|pandemic/)) importance = 5;
+    else if (text.match(/president|minister|ceo|leader/)) importance = 4;
+    
+    let buzz = Math.min(urgency + Math.floor(Math.random() * 2), 5);
+    
+    return {
+      category,
+      urgency,
+      importance,
+      buzz,
+      stars: Math.min(Math.round((urgency + importance) / 2), 5),
+      keywords: this.extractKeywords(text),
+      sentiment: this.analyzeSentiment(text),
+      qualityScore: this.calculateQualityScore(article)
+    };
+  }
+
+  extractKeywords(text) {
+    const words = text.match(/\b\w{4,}\b/g) || [];
+    const wordCount = new Map();
+    
+    words.forEach(word => {
+      const lowerWord = word.toLowerCase();
+      if (!this.stopWords.has(lowerWord)) {
+        wordCount.set(word, (wordCount.get(word) || 0) + 1);
+      }
+    });
+    
+    return [...wordCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([word]) => word);
+  }
+
+  analyzeSentiment(text) {
+    const positive = ['good', 'great', 'success', 'win', 'positive'];
+    const negative = ['bad', 'crisis', 'fail', 'negative', 'decline'];
+    
+    let positiveCount = positive.filter(word => text.includes(word)).length;
+    let negativeCount = negative.filter(word => text.includes(word)).length;
+    
+    if (positiveCount > negativeCount) return '긍정';
+    if (negativeCount > positiveCount) return '부정';
+    return '중립';
+  }
+
+  // 중복 감지 (간소화)
+  isDuplicate(title, threshold = 0.8) {
+    for (const cachedTitle of this.duplicateCache) {
+      if (this.calculateSimilarity(title, cachedTitle) > threshold) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  calculateSimilarity(str1, str2) {
+    const set1 = new Set(str1.toLowerCase().split(/\s+/));
+    const set2 = new Set(str2.toLowerCase().split(/\s+/));
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+    return intersection.size / union.size;
+  }
+
+  // 트렌딩 토픽 업데이트 (간소화)
+  updateTrendingTopics(articles) {
+    const wordCount = new Map();
+    
+    articles.slice(0, 20).forEach(article => { // 처리량 제한
+      const text = `${article.title} ${article.description || ''}`.toLowerCase();
+      const words = text.match(/\b\w{4,}\b/g) || [];
+      
+      words.slice(0, 10).forEach(word => { // 단어 수 제한
+        if (!this.stopWords.has(word)) {
+          wordCount.set(word, (wordCount.get(word) || 0) + 1);
+        }
+      });
+    });
+    
+    const sortedWords = [...wordCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+    
+    this.trendingTopics.clear();
+    sortedWords.forEach(([word, count]) => {
+      this.trendingTopics.set(word, count);
+    });
+  }
+
+  // 고급 필터링 (간소화)
+  filterAndRankArticles(articles, maxCount = 5) {
+    const qualityThreshold = parseInt(process.env.QUALITY_THRESHOLD) || 6; // 낮춤
+    const duplicateThreshold = parseFloat(process.env.DUPLICATE_THRESHOLD) || 0.8;
+    
+    const scoredArticles = articles.map(article => ({
+      ...article,
+      qualityScore: this.calculateQualityScore(article)
+    }));
+    
+    const qualityFiltered = scoredArticles.filter(article => 
+      article.qualityScore >= qualityThreshold &&
+      article.title &&
+      article.title !== '[Removed]' &&
+      article.description &&
+      article.description.length > 10 // 최소 길이 단축
+    );
+    
+    const uniqueArticles = [];
+    for (const article of qualityFiltered) {
+      if (!this.isDuplicate(article.title, duplicateThreshold)) {
+        uniqueArticles.push(article);
+        this.duplicateCache.add(article.title);
+        if (uniqueArticles.length >= maxCount * 2) break; // 조기 종료
+      }
+    }
+    
+    uniqueArticles.sort((a, b) => b.qualityScore - a.qualityScore);
+    return uniqueArticles.slice(0, maxCount);
+  }
+
+  // 메인 수집 함수 (병렬 처리 최적화)
+  async collectAllNews() {
+    const cacheKey = 'all_news';
+    const cacheExpiry = (parseInt(process.env.CACHE_EXPIRY_MINUTES) || 8) * 60 * 1000; // 8분으로 단축
+    
+    // 캐시 확인
+    if (this.newsCache.has(cacheKey)) {
+      const cached = this.newsCache.get(cacheKey);
+      if (Date.now() - cached.timestamp < cacheExpiry) {
+        console.log('📦 캐시된 뉴스 데이터 사용');
+        return cached.data;
+      }
+    }
+    
+    console.log('🔄 병렬 뉴스 수집 시작...');
+    const startTime = Date.now();
+    
+    try {
+      // 모든 소스를 병렬로 수집 (타임아웃 설정)
+      const sourcePromises = [
+        this.fetchNews('general', 'us'),
+        this.fetchNews('business', 'us'),
+        this.fetchNews('technology', 'us'),
+        this.fetchYouTubeNews(),
+        this.fetchRSSNews(),
+        this.fetchNews('general', 'kr'),
+        this.fetchNews('general', 'jp')
+      ];
+      
+      // 전체 타임아웃 설정 (15초)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('전체 수집 타임아웃')), 15000);
+      });
+      
+      const results = await Promise.race([
+        Promise.allSettled(sourcePromises),
+        timeoutPromise
+      ]);
+      
+      const extractValue = (result) => result.status === 'fulfilled' ? result.value : [];
+      
+      const allWorldArticles = [
+        ...extractValue(results[0]),
+        ...extractValue(results[1]),
+        ...extractValue(results[2]),
+        ...extractValue(results[3]),
+        ...extractValue(results[4])
+      ];
+      
+      console.log(`📊 수집 완료: 세계 ${allWorldArticles.length}, 한국 ${extractValue(results[5]).length}, 일본 ${extractValue(results[6]).length}`);
+      
+      // 트렌딩 토픽 업데이트
+      this.updateTrendingTopics(allWorldArticles);
+      
+      // 각 섹션을 병렬로 처리
+      const sectionPromises = [
+        this.processAdvancedSection(allWorldArticles, 4, '세계뉴스'),
+        this.processAdvancedSection(extractValue(results[5]), 4, '한국뉴스'),
+        this.processAdvancedSection(extractValue(results[6]), 4, '일본뉴스')
+      ];
+      
+      const processedSections = await Promise.all(sectionPromises);
+      
+      const result = {
+        sections: {
+          world: processedSections[0],
+          korea: processedSections[1],
+          japan: processedSections[2]
+        },
+        trending: [...this.trendingTopics.entries()].slice(0, 8),
+        lastUpdated: new Date().toISOString(),
+        totalArticles: processedSections.reduce((sum, section) => sum + section.length, 0),
+        systemStatus: this.getSystemStatus()
+      };
+      
+      // 캐시 저장
+      this.newsCache.set(cacheKey, {
+        data: result,
+        timestamp: Date.now()
+      });
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ 병렬 뉴스 처리 완료: ${duration}ms`);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ 뉴스 수집 오류:', error);
+      return this.getDefaultNewsData();
+    }
+  }
+
+  // 병렬 처리 섹션 (핵심 개선)
+  async processAdvancedSection(articles, maxCount, sectionName) {
+    if (!articles || articles.length === 0) return [];
+    
+    console.log(`📰 ${sectionName} 병렬 처리 시작: ${articles.length}개`);
+    const startTime = Date.now();
+    
+    try {
+      // 1단계: 필터링 (빠르게)
+      const filteredArticles = this.filterAndRankArticles(articles, maxCount * 2);
+      
+      if (filteredArticles.length === 0) return [];
+      
+      // 2단계: 병렬 번역 및 분석 (핵심 개선)
+      const analyzedArticlesPromises = filteredArticles.map(async (article) => {
+        try {
+          // 번역과 분석을 병렬로 실행
+          const [translatedTitle, translatedDescription, analysis] = await Promise.all([
+            this.translateText(article.title, false),
+            this.translateText(article.description || '내용이 없습니다.', true),
+            this.analyzeArticle(article)
+          ]);
+          
+          return {
+            id: this.generateId(article),
+            title: translatedTitle,
+            originalTitle: article.title,
+            description: translatedDescription,
+            originalDescription: article.description,
+            url: article.url,
+            image: article.urlToImage,
+            publishedAt: article.publishedAt,
+            source: article.source?.name || 'Unknown',
+            isVideo: article.isVideo || false,
+            ...analysis,
+            finalScore: analysis.qualityScore + analysis.urgency + analysis.importance
+          };
+          
+        } catch (error) {
+          console.warn(`기사 처리 실패: ${article.title?.substring(0, 30)}...`);
+          return null;
+        }
+      });
+      
+      // 모든 번역/분석을 병렬로 대기
+      const analyzedArticles = (await Promise.all(analyzedArticlesPromises))
+        .filter(article => article !== null);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ ${sectionName} 병렬 처리 완료: ${analyzedArticles.length}개, ${duration}ms`);
+      
+      return analyzedArticles
+        .sort((a, b) => b.finalScore - a.finalScore)
+        .slice(0, maxCount);
+        
+    } catch (error) {
+      console.error(`❌ ${sectionName} 처리 오류:`, error);
+      return [];
+    }
+  }
+
+  generateId(article) {
+    return require('crypto')
+      .createHash('md5')
+      .update((article.title || '') + (article.url || ''))
+      .digest('hex')
+      .substring(0, 8);
+  }
+
+  getSystemStatus() {
+    return {
+      cacheSize: this.newsCache.size,
+      translationCacheSize: this.translationCache.size,
+      duplicateCacheSize: this.duplicateCache.size,
+      trendingTopicsCount: this.trendingTopics.size,
+      lastUpdate: new Date().toISOString(),
+      apiKeys: {
+        newsApi: !!process.env.NEWS_API_KEY,
+        skyworkAi: !!process.env.SKYWORK_API_KEY,
+        openAi: !!process.env.OPENAI_API_KEY,
+        youtubeApi: !!process.env.YOUTUBE_API_KEY
+      },
+      environment: process.env.NODE_ENV || 'development',
+      version: '3.0.0-parallel'
+    };
+  }
+
+  getDefaultNewsData() {
+    return {
+      sections: {
+        world: [{
+          id: 'default-1',
+          title: 'EmarkNews 병렬 처리 시스템 준비 완료',
+          description: '최적화된 병렬 처리로 빠르고 안정적인 뉴스 서비스를 제공합니다. AI 번역과 분석이 동시에 진행되어 로딩 시간이 대폭 단축되었습니다.',
+          url: '#', image: null, publishedAt: new Date().toISOString(),
+          source: 'EmarkNews', category: '시스템', urgency: 3, importance: 3,
+          buzz: 3, stars: 4, keywords: ['병렬처리', '최적화'], sentiment: '긍정'
+        }],
+        korea: [{
+          id: 'default-2',
+          title: '한국 뉴스 고속 처리 중',
+          description: '병렬 번역 시스템으로 한국 뉴스를 빠르게 처리하고 있습니다.',
+          url: '#', image: null, publishedAt: new Date().toISOString(),
+          source: 'EmarkNews', category: '시스템', urgency: 2, importance: 2,
+          buzz: 2, stars: 3, keywords: ['한국', '고속'], sentiment: '중립'
+        }],
+        japan: [{
+          id: 'default-3',
+          title: '일본 뉴스 동시 번역 진행',
+          description: '여러 기사를 동시에 번역하여 처리 속도를 향상시켰습니다.',
+          url: '#', image: null, publishedAt: new Date().toISOString(),
+          source: 'EmarkNews', category: '시스템', urgency: 2, importance: 2,
+          buzz: 2, stars: 3, keywords: ['일본', '동시번역'], sentiment: '중립'
+        }]
+      },
+      trending: [['병렬처리', 8], ['최적화', 6], ['번역', 5], ['뉴스', 4]],
+      lastUpdated: new Date().toISOString(),
+      totalArticles: 3,
+      systemStatus: this.getSystemStatus()
+    };
+  }
+
+  clearCache() {
+    this.newsCache.clear();
+    this.translationCache.clear();
+    this.duplicateCache.clear();
+    console.log('🗑️ 병렬 처리 캐시 시스템 초기화 완료');
+  }
+}
+
+module.exports = AdvancedNewsSystem;
+

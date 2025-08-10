@@ -1,0 +1,207 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const url = require('url');
+
+// 환경 변수 로드
+require('dotenv').config();
+
+// 고급 뉴스 시스템 로드
+const AdvancedNewsSystem = require('./advanced-news-system');
+
+// 포트 설정 (Railway에서 자동 설정)
+const PORT = process.env.PORT || 3000;
+
+// 고급 뉴스 시스템 인스턴스 생성
+const newsSystem = new AdvancedNewsSystem();
+
+// MIME 타입 매핑
+const mimeTypes = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.wav': 'audio/wav',
+  '.mp4': 'video/mp4',
+  '.woff': 'application/font-woff',
+  '.ttf': 'application/font-ttf',
+  '.eot': 'application/vnd.ms-fontobject',
+  '.otf': 'application/font-otf',
+  '.wasm': 'application/wasm'
+};
+
+// 정적 파일 서빙 함수
+function serveStaticFile(res, filePath) {
+  const extname = String(path.extname(filePath)).toLowerCase();
+  const contentType = mimeTypes[extname] || 'application/octet-stream';
+
+  fs.readFile(filePath, (error, content) => {
+    if (error) {
+      if (error.code === 'ENOENT') {
+        res.writeHead(404, { 'Content-Type': 'text/html' });
+        res.end('<h1>404 - 파일을 찾을 수 없습니다</h1>', 'utf-8');
+      } else {
+        res.writeHead(500);
+        res.end(`서버 오류: ${error.code}`, 'utf-8');
+      }
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content, 'utf-8');
+    }
+  });
+}
+
+// HTTP 서버 생성
+const server = http.createServer(async (req, res) => {
+  const parsedUrl = url.parse(req.url, true);
+  const pathname = parsedUrl.pathname;
+  const query = parsedUrl.query;
+
+  // CORS 헤더 설정
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // OPTIONS 요청 처리 (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  try {
+    // API 라우팅
+    if (pathname === '/api/news') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      
+      if (req.method === 'GET') {
+        // 상태 확인 요청
+        if (query.status === 'true') {
+          const status = newsSystem.getSystemStatus();
+          res.writeHead(200);
+          res.end(JSON.stringify(status, null, 2));
+          return;
+        }
+        
+        // 뉴스 데이터 요청
+        console.log('📰 뉴스 데이터 요청 받음');
+        const newsData = await newsSystem.collectAllNews();
+        res.writeHead(200);
+        res.end(JSON.stringify(newsData, null, 2));
+        
+      } else if (req.method === 'POST') {
+        // 수동 업데이트 요청
+        console.log('🔄 수동 뉴스 업데이트 요청');
+        newsSystem.clearCache();
+        const newsData = await newsSystem.collectAllNews();
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          success: true,
+          message: '뉴스가 성공적으로 업데이트되었습니다.',
+          data: newsData,
+          timestamp: new Date().toISOString()
+        }, null, 2));
+        
+      } else {
+        res.writeHead(405);
+        res.end(JSON.stringify({ error: '허용되지 않는 메소드입니다.' }));
+      }
+      
+    } else if (pathname === '/') {
+      // 메인 페이지
+      const indexPath = path.join(__dirname, 'public', 'index.html');
+      serveStaticFile(res, indexPath);
+      
+    } else {
+      // 정적 파일 서빙
+      const filePath = path.join(__dirname, 'public', pathname);
+      
+      // 보안: 디렉토리 트래버설 방지
+      if (!filePath.startsWith(path.join(__dirname, 'public'))) {
+        res.writeHead(403);
+        res.end('접근이 거부되었습니다.');
+        return;
+      }
+      
+      serveStaticFile(res, filePath);
+    }
+    
+  } catch (error) {
+    console.error('❌ 서버 오류:', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: '내부 서버 오류가 발생했습니다.',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    }));
+  }
+});
+
+// 서버 시작
+server.listen(PORT, () => {
+  console.log(`🚀 EmarkNews 서버가 포트 ${PORT}에서 실행 중입니다.`);
+  console.log(`🌐 로컬 접속: http://localhost:${PORT}`);
+  console.log(`📊 시스템 상태: http://localhost:${PORT}/api/news?status=true`);
+  console.log(`📰 뉴스 API: http://localhost:${PORT}/api/news`);
+  
+  // 환경 변수 확인
+  const requiredEnvVars = [
+    'SKYWORK_API_KEY',
+    'OPENAI_API_KEY', 
+    'NEWS_API_KEY',
+    'YOUTUBE_API_KEY'
+  ];
+  
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.warn('⚠️  다음 환경 변수가 설정되지 않았습니다:', missingVars.join(', '));
+    console.warn('   Railway 환경 변수 설정에서 추가해주세요.');
+  } else {
+    console.log('✅ 모든 필수 환경 변수가 설정되었습니다.');
+  }
+});
+
+// 10분마다 자동 뉴스 업데이트
+setInterval(async () => {
+  try {
+    console.log('🔄 자동 뉴스 업데이트 시작...');
+    await newsSystem.collectAllNews();
+    console.log('✅ 자동 뉴스 업데이트 완료');
+  } catch (error) {
+    console.error('❌ 자동 업데이트 오류:', error.message);
+  }
+}, 10 * 60 * 1000); // 10분
+
+// 프로세스 종료 시 정리
+process.on('SIGTERM', () => {
+  console.log('🛑 서버 종료 신호 받음');
+  server.close(() => {
+    console.log('✅ 서버가 정상적으로 종료되었습니다.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 서버 중단 신호 받음 (Ctrl+C)');
+  server.close(() => {
+    console.log('✅ 서버가 정상적으로 종료되었습니다.');
+    process.exit(0);
+  });
+});
+
+// 처리되지 않은 예외 처리
+process.on('uncaughtException', (error) => {
+  console.error('❌ 처리되지 않은 예외:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ 처리되지 않은 Promise 거부:', reason);
+  process.exit(1);
+});
+
