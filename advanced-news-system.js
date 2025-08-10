@@ -17,12 +17,20 @@ class PremiumMultiAPINewsSystem {
                 baseUrl: 'https://openapi.naver.com/v1/search/news'
             },
             newsapi: {
-                apiKey: '44d9347a149b40ad87b3deb8bba95183',
+                apiKey: process.env.NEWS_API_KEY || '44d9347a149b40ad87b3deb8bba95183',
                 baseUrl: 'https://newsapi.org/v2'
             },
             youtube: {
                 apiKey: process.env.YOUTUBE_API_KEY,
                 baseUrl: 'https://www.googleapis.com/youtube/v3'
+            },
+            openai: {
+                apiKey: process.env.OPENAI_API_KEY,
+                baseUrl: 'https://api.openai.com/v1'
+            },
+            skywork: {
+                apiKey: process.env.SKYWORK_API_KEY,
+                baseUrl: 'https://sky-api.singularity-ai.com/saas/api/v4/generate'
             }
         };
         
