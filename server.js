@@ -65,7 +65,7 @@ app.get('/api/news', async (req, res) => {
             }
         }, 30000);
 
-        const newsData = await newsSystem.collectAllNews();
+        const newsData = await newsSystem.getNews();
         
         clearTimeout(timeout);
         
@@ -101,7 +101,7 @@ app.post('/api/news', async (req, res) => {
         newsSystem.clearCache();
         console.log('🗑️ 프리미엄 캐시 클리어 완료');
         
-        const newsData = await newsSystem.collectAllNews();
+        const newsData = await newsSystem.getNews();
         
         res.json({
             success: true,
@@ -172,7 +172,7 @@ app.listen(PORT, () => {
     // 초기 뉴스 수집
     setTimeout(() => {
         console.log('🔄 프리미엄 뉴스 수집 시작...');
-        newsSystem.collectAllNews().then(() => {
+        newsSystem.getNews(true).then(() => {
             console.log('✅ 프리미엄 뉴스 수집 완료');
         }).catch(error => {
             console.error('❌ 프리미엄 뉴스 수집 실패:', error);
