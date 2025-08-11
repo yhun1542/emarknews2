@@ -63,7 +63,7 @@ app.get('/api/news', async (req, res) => {
             if (!res.headersSent) {
                 res.status(408).json({ error: '요청 시간 초과' });
             }
-        }, 10000);
+        }, 30000);
 
         const newsData = await newsSystem.collectAllNews();
         
