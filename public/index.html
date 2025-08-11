@@ -1475,7 +1475,7 @@
             };
         }
 
-        // 뉴스 섹션 렌더링
+        // 뉴스 섹션 렌더링 (안전한 배열 처리)
         function renderNewsSection(containerId, articles, countId) {
             const container = document.getElementById(containerId);
             const countElement = document.getElementById(countId);
@@ -1485,17 +1485,35 @@
                 return;
             }
 
+            // 안전한 배열 처리
+            if (!articles || !Array.isArray(articles)) {
+                console.warn('⚠️ 유효하지 않은 배열 데이터:', containerId, articles);
+                articles = [];
+            }
+
             console.log(`📝 ${containerId} 렌더링:`, articles.length, '개 기사');
 
             container.innerHTML = '';
-            countElement.textContent = articles.length;
+            if (countElement) {
+                countElement.textContent = articles.length;
+            }
 
-            articles.forEach((article, index) => {
-                const card = createNewsCard(article);
-                card.classList.add('fade-in');
-                card.style.animationDelay = `${index * 0.1}s`;
-                container.appendChild(card);
-            });
+            // 안전한 forEach 처리
+            try {
+                articles.forEach((article, index) => {
+                    if (article && typeof article === 'object') {
+                        const card = createNewsCard(article);
+                        card.classList.add('fade-in');
+                        card.style.animationDelay = `${index * 0.1}s`;
+                        container.appendChild(card);
+                    } else {
+                        console.warn('⚠️ 유효하지 않은 기사 데이터:', article);
+                    }
+                });
+            } catch (error) {
+                console.error('❌ 뉴스 섹션 렌더링 오류:', error);
+                container.innerHTML = '<p>뉴스를 표시할 수 없습니다.</p>';
+            }
         }
 
         // 뉴스 카드 생성
@@ -1717,21 +1735,52 @@
             document.body.style.overflow = '';
         }
 
-        // 트렌딩 키워드 렌더링
+        // 트렌딩 키워드 렌더링 (안전한 배열 처리)
         function renderTrendingKeywords(trending) {
             const container = document.getElementById('trendingList');
             
-            if (!trending || trending.length === 0) {
+            if (!container) {
+                console.error('❌ 트렌딩 컨테이너를 찾을 수 없습니다');
+                return;
+            }
+            
+            // 안전한 배열 처리
+            if (!trending || !Array.isArray(trending) || trending.length === 0) {
+                console.warn('⚠️ 유효하지 않은 트렌딩 데이터:', trending);
                 container.innerHTML = '<li class="trending-item"><span class="trending-keyword">로딩 중...</span><span class="trending-score">-</span></li>';
                 return;
             }
 
-            container.innerHTML = trending.slice(0, 8).map(([keyword, score]) => `
-                <li class="trending-item">
-                    <span class="trending-keyword">${keyword}</span>
-                    <span class="trending-score">${score}</span>
-                </li>
-            `).join('');
+            try {
+                container.innerHTML = trending.slice(0, 8).map(item => {
+                    // 객체 형태 처리 {keyword: "...", score: ...}
+                    if (item && typeof item === 'object' && item.keyword) {
+                        return `
+                            <li class="trending-item">
+                                <span class="trending-keyword">${item.keyword}</span>
+                                <span class="trending-score">${item.score || 0}</span>
+                            </li>
+                        `;
+                    }
+                    // 배열 형태 처리 [keyword, score]
+                    else if (Array.isArray(item) && item.length >= 2) {
+                        return `
+                            <li class="trending-item">
+                                <span class="trending-keyword">${item[0]}</span>
+                                <span class="trending-score">${item[1]}</span>
+                            </li>
+                        `;
+                    }
+                    // 기본 처리
+                    else {
+                        console.warn('⚠️ 유효하지 않은 트렌딩 아이템:', item);
+                        return '';
+                    }
+                }).filter(html => html).join('');
+            } catch (error) {
+                console.error('❌ 트렌딩 키워드 렌더링 오류:', error);
+                container.innerHTML = '<li class="trending-item"><span class="trending-keyword">오류 발생</span><span class="trending-score">-</span></li>';
+            }
         }
 
         // 시스템 정보 업데이트

@@ -517,10 +517,15 @@ class RobustNewsSystemWithMonitoring {
         
         // AI 번역 시도 (실패 시 기본 처리)
         try {
-            if (this.apis.openAi) {
-                summary = await this.makeRobustApiCall('openAi', this.translateWithOpenAI.bind(this), summary);
-            } else if (this.apis.skyworkAi) {
+            // OpenAI Rate Limit 문제로 인해 일시적으로 비활성화
+            // if (this.apis.openAi) {
+            //     summary = await this.makeRobustApiCall('openAi', this.translateWithOpenAI.bind(this), summary);
+            // } else 
+            if (this.apis.skyworkAi) {
                 summary = await this.makeRobustApiCall('skyworkAi', this.translateWithSkywork.bind(this), summary);
+            } else {
+                // AI 번역 대신 기본 처리 사용
+                summary = this.basicTranslate(summary);
             }
         } catch (error) {
             console.error('❌ AI 번역 실패, 기본 처리 사용:', error.message);
