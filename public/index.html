@@ -722,6 +722,25 @@
             }
         }
 
+        // 로딩 화면 제어
+        function showLoading() {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.display = 'flex';
+                loading.style.opacity = '1';
+            }
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.opacity = '0';
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                }, 300);
+            }
+        }
+
         // 다크모드 토글
         function toggleDarkMode() {
             document.documentElement.classList.toggle('dark');
@@ -786,6 +805,8 @@
         window.closeModal = closeModal;
         window.showTab = showTab;
         window.toggleDarkMode = toggleDarkMode;
+        window.showLoading = showLoading;
+        window.hideLoading = hideLoading;
     </script>
 </body>
 </html>
