@@ -349,9 +349,9 @@
             setupDarkMode();
             setupEventListeners();
             setNavPosition();
-            await loadNews();
+            await loadNews(); // loadNews의 finally 블록에서 hideLoading() 처리
             startTimers();
-            hideLoading();
+            // hideLoading() 제거 - 비동기 흐름 제어는 loadNews에서 담당
         }
 
         // --- 다크 모드 설정 ---
@@ -402,8 +402,10 @@
         // --- 뉴스 데이터 로딩 및 처리 ---
         async function loadNews(forceRefresh = false) {
             try {
+                showLoading(); // 로딩 시작 - 비동기 작업 시작 시 반드시 호출
                 const startTime = Date.now();
                 console.log(`📡 뉴스 데이터 로딩 시작 (Force: ${forceRefresh})...`);
+                
                 const url = forceRefresh ? `/api/news?_t=${Date.now()}&_force=true` : '/api/news';
                 const response = await fetch(url, {
                     headers: { 'Cache-Control': forceRefresh ? 'no-cache' : 'default' }
@@ -421,6 +423,10 @@
             } catch (error) {
                 console.error('❌ 뉴스 로딩 실패:', error);
                 showError(`뉴스를 불러오는 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요. (${error.message})`);
+            } finally {
+                // 성공/실패와 관계없이 항상 실행 - 비동기 흐름 제어의 핵심
+                hideLoading();
+                console.log('🔄 로딩 상태 해제 완료');
             }
         }
 
