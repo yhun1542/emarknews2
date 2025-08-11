@@ -639,3 +639,154 @@
             const container = document.getElementById('trending-keywords');
             if (!container || !trending) return;
             container.innerHTML =
+            container.innerHTML = trending.map(keyword => 
+                `<span class="trending-keyword bg-primary/10 text-primary dark:bg-primary-dark/20 dark:text-primary-dark px-3 py-1 rounded-full text-sm font-medium hover:bg-primary/20 dark:hover:bg-primary-dark/30 transition-colors cursor-pointer">
+                    ${keyword}
+                </span>`
+            ).join('');
+        }
+
+        function updateSystemInfo(systemStatus) {
+            if (!systemStatus) return;
+            
+            const versionEl = document.getElementById('system-version');
+            const statusEl = document.getElementById('system-status');
+            const updateTimeEl = document.getElementById('last-update');
+            const articleCountEl = document.getElementById('article-count');
+            
+            if (versionEl) versionEl.textContent = systemStatus.version || 'ENHANCED-X-14.0.0';
+            if (statusEl) statusEl.textContent = systemStatus.status || '24시간 가동 중';
+            if (updateTimeEl) updateTimeEl.textContent = systemStatus.lastUpdate || new Date().toLocaleTimeString('ko-KR');
+            if (articleCountEl) articleCountEl.textContent = `${systemStatus.totalArticles || 0}개`;
+        }
+
+        function createBuzzCardHTML(item) {
+            return `
+                <div class="buzz-card bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700/50">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-purple-600 dark:text-purple-400 font-semibold text-sm">${item.region || 'Global'}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">${item.timeAgo || ''}</span>
+                    </div>
+                    <h4 class="font-bold text-gray-900 dark:text-white mb-2">${item.keyword || item.title}</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">${item.description || item.summary || ''}</p>
+                    ${item.volume ? `<div class="mt-2 text-xs text-purple-600 dark:text-purple-400">트렌드 볼륨: ${item.volume}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            }
+            console.error('Error:', message);
+        }
+
+        function hideError() {
+            const errorEl = document.getElementById('error-message');
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+            }
+        }
+
+        function formatCurrency(value, decimals = 0) {
+            if (!value) return '0';
+            return Number(value).toLocaleString('ko-KR', { 
+                minimumFractionDigits: decimals, 
+                maximumFractionDigits: decimals 
+            });
+        }
+
+        function showTab(tabName) {
+            // 모든 탭 내용 숨기기
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // 모든 탭 버튼 비활성화
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 선택된 탭 내용 보이기
+            const selectedContent = document.getElementById(`tab-${tabName}`);
+            if (selectedContent) {
+                selectedContent.classList.remove('hidden');
+            }
+            
+            // 선택된 탭 버튼 활성화
+            const selectedButton = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+            if (selectedButton) {
+                selectedButton.classList.add('active');
+            }
+        }
+
+        // 다크모드 토글
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('darkMode', isDark);
+            
+            const icon = document.querySelector('#dark-mode-toggle i');
+            if (icon) {
+                icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 EmarkNews Enhanced UI X-Integrated 초기화 시작');
+            
+            // 다크모드 초기 설정
+            const savedDarkMode = localStorage.getItem('darkMode');
+            if (savedDarkMode === 'true' || (!savedDarkMode && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                const icon = document.querySelector('#dark-mode-toggle i');
+                if (icon) icon.className = 'fas fa-sun';
+            }
+            
+            // 뉴스 로딩
+            loadNews();
+            
+            // 자동 새로고침 (5분마다)
+            setInterval(() => {
+                console.log('🔄 자동 새로고침 실행');
+                loadNews();
+            }, 5 * 60 * 1000);
+            
+            // PWA 서비스 워커 등록
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker 등록 성공:', registration);
+                    })
+                    .catch(error => {
+                        console.log('❌ Service Worker 등록 실패:', error);
+                    });
+            }
+            
+            // 키보드 이벤트
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+                if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                    e.preventDefault();
+                    loadNews(true);
+                }
+            });
+            
+            console.log('✅ EmarkNews Enhanced UI X-Integrated 초기화 완료');
+        });
+
+        // 전역 함수들
+        window.loadNews = loadNews;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.showTab = showTab;
+        window.toggleDarkMode = toggleDarkMode;
+    </script>
+</body>
+</html>
+
