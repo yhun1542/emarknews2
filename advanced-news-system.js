@@ -1,43 +1,42 @@
 const axios = require('axios');
 const crypto = require('crypto');
 
-// 설정 상수화
+// 설정 상수화 (최적화된 값 적용)
 const CACHE_EXPIRY = 8 * 60 * 1000; // 8분
 const API_TIMEOUTS = {
-    NEWS_API: 10000,
-    NAVER_API: 8000,
-    OPENAI: 15000,
-    SKYWORK: 12000,
+    NEWS_API: 8000,
+    NAVER_API: 6000,
+    OPENAI: 10000, // JSON 모드 적용으로 안정화 및 최적화
+    SKYWORK: 9000, // 폴백용
     EXCHANGE_API: 5000,
-    X_API: 8000 // *** X API 타임아웃 설정
+    X_API: 8000
 };
-const MAX_ARTICLES_PER_SECTION = 12;
+const MAX_ARTICLES_PER_SECTION = 15; // 품질과 양의 균형 고려
 
-class EnhancedNewsSystemXIntegrated {
+class EmarkNewsSystem {
     constructor() {
         this.cache = new Map();
         this.cacheExpiry = CACHE_EXPIRY;
         this.lastUpdate = null;
         this.isUpdating = false;
-        this.updatePromise = null;
+        this.updatePromise = null; // 동시성 제어를 위한 Promise 재사용
         this.updateCounter = 0;
 
-        // API 설정
+        // API 설정 (환경 변수 사용 권장)
+        // 실제 운영 시에는 환경 변수(process.env)를 사용하세요.
         this.apis = {
             newsApi: process.env.NEWS_API_KEY || '44d9347a149b40ad87b3deb8bba95183',
-            openAi: process.env.OPENAI_API_KEY,
-            skyworkAi: process.env.SKYWORK_API_KEY,
+            openAi: process.env.OPENAI_API_KEY, // OpenAI 키 필요
+            skyworkAi: process.env.SKYWORK_API_KEY, // Skywork 키 필요 (폴백용)
             naverClientId: process.env.NAVER_CLIENT_ID || '4lsPsi_je8UoGGcfTP1w',
             naverClientSecret: process.env.NAVER_CLIENT_SECRET || 'J3BHRgyWPc',
-            // *** X (Twitter) API 설정 추가 (환경 변수 사용 권장) ***
             xApiKey: process.env.X_API_KEY || 'Dyop1iTlyu8fi6yeuC0GlcV0t',
             xApiSecret: process.env.X_API_SECRET || '8k4CpV8OJJO3J3lVgTh9N5VS92BatIWx4z5pzdOufUBTOxZETz'
         };
 
-        this.xBearerToken = null; // *** X API Bearer Token 캐시
-        this.xTokenExpiry = 0; // *** 토큰 만료 시간
-
-        // *** X 트렌드 위치 (WOEID) ***
+        // X (Twitter) API 설정
+        this.xBearerToken = null;
+        this.xTokenExpiry = 0;
         this.xTrendLocations = {
             world: { woeid: 1, name: '전세계' },
             korea: { woeid: 23424868, name: '대한민국' },
@@ -126,7 +125,6 @@ class EnhancedNewsSystemXIntegrated {
         // 스포츠 키워드 (제외용)
         this.sportsKeywords = ['sports', 'baseball', 'football', 'soccer', 'basketball', 'tennis', 'golf', 'olympics', 'world cup', '스포츠', '야구', '축구', '농구', '테니스', '골프', '올림픽'];
 
-
         // API 메트릭
         this.apiMetrics = {
             newsApi: { success: 0, failure: 0, totalTime: 0, lastError: null },
@@ -134,7 +132,7 @@ class EnhancedNewsSystemXIntegrated {
             openAi: { success: 0, failure: 0, totalTime: 0, lastError: null },
             skyworkAi: { success: 0, failure: 0, totalTime: 0, lastError: null },
             exchangeApi: { success: 0, failure: 0, totalTime: 0, lastError: null },
-            xApi: { success: 0, failure: 0, totalTime: 0, lastError: null } // *** X API 메트릭 추가
+            xApi: { success: 0, failure: 0, totalTime: 0, lastError: null }
         };
 
         // Rate Limiting
@@ -143,23 +141,22 @@ class EnhancedNewsSystemXIntegrated {
             newsApi: { requests: 0, resetTime: Date.now() + 3600000, maxRequests: 400 },
             openAi: { requests: 0, resetTime: Date.now() + 60000, maxRequests: 60 },
             skywork: { requests: 0, resetTime: Date.now() + 60000, maxRequests: 60 },
-            // *** X API Rate Limit (Trends API는 15분당 75회 제한)
             xApi: { requests: 0, resetTime: Date.now() + (15 * 60000), maxRequests: 70 }
         };
 
-        console.log('🚀 뉴스 시스템 초기화 (X API 통합 v16.0.0)');
+        console.log('🚀 EmarkNews 시스템 초기화 (v18.0.0 - Final Optimized)');
     }
 
-    // 메인 뉴스 수집 함수 (Promise 재사용 로직 유지)
+    // 메인 뉴스 수집 함수 (Promise 재사용 및 캐싱 로직)
     async getNews(forceRefresh = false, timestamp = null) {
-        const cacheKey = 'integrated_news_data_v16';
+        const cacheKey = 'emarknews_data_v18';
 
         // 1. 캐시 확인
         if (!forceRefresh && !timestamp && this.cache.has(cacheKey) && !this.isCacheExpired(cacheKey)) {
             return this.cache.get(cacheKey).data;
         }
 
-        // 2. 업데이트 중복 방지
+        // 2. 업데이트 중복 방지 (Promise 재사용)
         if (this.isUpdating) {
             console.log('⚠️ 이미 업데이트 중입니다. 진행 중인 업데이트를 기다립니다.');
             if (this.updatePromise) {
@@ -180,9 +177,9 @@ class EnhancedNewsSystemXIntegrated {
 
         this.updatePromise = this.collectEnhancedNews(forceRefresh)
             .then(newsData => {
-                const totalArticles = newsData.sections.world.length +
-                                      newsData.sections.korea.length +
-                                      newsData.sections.japan.length;
+                const totalArticles = (newsData.sections.world?.length || 0) +
+                                      (newsData.sections.korea?.length || 0) +
+                                      (newsData.sections.japan?.length || 0);
 
                 if (totalArticles < 5) {
                     console.error('❌ 충분한 뉴스 수집 실패');
@@ -196,7 +193,7 @@ class EnhancedNewsSystemXIntegrated {
                 });
 
                 this.lastUpdate = new Date().toISOString();
-                console.log(`✅ 뉴스 수집 완료: ${totalArticles}개 기사 + ${newsData.sections.buzz.length}개 버즈`);
+                console.log(`✅ 뉴스 수집 완료: ${totalArticles}개 기사 + ${newsData.sections.buzz?.length || 0}개 버즈`);
 
                 return newsData;
             })
@@ -213,24 +210,24 @@ class EnhancedNewsSystemXIntegrated {
         return this.updatePromise;
     }
 
-    // *** 개선사항: 향상된 뉴스 수집 (X 트렌드 추가)
+    // 통합 뉴스 수집 (병렬 처리)
     async collectEnhancedNews(forceRefresh = false) {
         console.log('📡 뉴스 및 소셜 트렌드 수집 시작...');
 
-        // 병렬 수집 (X 트렌드 추가)
+        // 모든 데이터 소스 병렬 호출
         const results = await Promise.allSettled([
             this.fetchEnhancedWorldNews(forceRefresh),
             this.fetchEnhancedKoreaNews(forceRefresh),
-            this.fetchEnhancedJapanNews(forceRefresh),
+            this.fetchEnhancedJapanNews(forceRefresh), // 일본어 원문 포함
             this.fetchEnhancedExchangeRates(),
-            this.fetchSocialBuzz() // *** X 트렌드 수집
+            this.fetchSocialBuzz() // X 트렌드 수집
         ]);
 
         const worldNews = results[0].status === 'fulfilled' ? results[0].value : [];
         const koreaNews = results[1].status === 'fulfilled' ? results[1].value : [];
         const japanNews = results[2].status === 'fulfilled' ? results[2].value : [];
         const exchangeRates = results[3].status === 'fulfilled' ? results[3].value : this.getDefaultExchangeRates();
-        const socialBuzz = results[4].status === 'fulfilled' ? results[4].value : []; // *** 버즈 데이터
+        const socialBuzz = results[4].status === 'fulfilled' ? results[4].value : [];
 
         // 결과 로깅
         results.forEach((result, index) => {
@@ -247,23 +244,23 @@ class EnhancedNewsSystemXIntegrated {
                 world: worldNews.slice(0, MAX_ARTICLES_PER_SECTION),
                 korea: koreaNews.slice(0, MAX_ARTICLES_PER_SECTION),
                 japan: japanNews.slice(0, MAX_ARTICLES_PER_SECTION),
-                buzz: socialBuzz.slice(0, 20) // *** 버즈 섹션 추가
+                buzz: socialBuzz.slice(0, 20)
             },
             trending,
             exchangeRates,
             systemStatus: {
-                version: '16.0.0-x-integrated',
+                version: '18.0.0-final-optimized',
                 lastUpdate: this.lastUpdate,
                 cacheSize: this.cache.size,
                 updateCounter: this.updateCounter,
                 features: [
-                    'performance-optimization',
+                    'json-translation-system',
+                    'x-api-trends-integration',
                     'parallel-processing',
-                    'x-api-trends-integration', // 기능 추가
-                    'realtime-social-buzz', // 기능 추가
-                    'robust-caching',
-                    'api-retry-mechanism',
-                    'enhanced-translation-system'
+                    'robust-caching-promise-reuse',
+                    'keyword-highlighting',
+                    'kst-time-formatting',
+                    'enhanced-japan-sourcing'
                 ],
                 apiMetrics: this.getApiMetricsReport(),
                 apiSources: {
@@ -272,15 +269,361 @@ class EnhancedNewsSystemXIntegrated {
                     openAi: !!this.apis.openAi,
                     skyworkAi: !!this.apis.skyworkAi,
                     exchangeApi: true,
-                    xApi: !!(this.apis.xApiKey && this.apis.xApiSecret) // X API 상태 추가
+                    xApi: !!(this.apis.xApiKey && this.apis.xApiSecret)
                 }
             }
         };
     }
 
-    // --- X (Twitter) API 통합 함수들 시작 ---
+    // --- 뉴스 수집 및 처리 함수들 ---
 
-    // *** 신규: X API 인증 (Bearer Token 발급 및 캐싱)
+    // 세계 뉴스 수집
+    async fetchEnhancedWorldNews(forceRefresh = false) {
+        console.log('🌍 세계뉴스 수집 중...');
+        const sources = [
+            { endpoint: 'top-headlines', params: { category: 'general', language: 'en', pageSize: 40, sources: 'bbc-news,reuters,associated-press,cnn' } },
+            { endpoint: 'everything', params: { q: 'breaking OR urgent OR crisis OR government OR president', language: 'en', pageSize: 35, sortBy: 'publishedAt', sources: 'bbc-news,reuters,the-guardian-uk,bloomberg' } },
+            { endpoint: 'top-headlines', params: { category: 'business', language: 'en', pageSize: 30, sources: 'bloomberg,financial-times,wall-street-journal' } }
+        ];
+
+        const apiPromises = sources.map(source => {
+            if (!this.checkRateLimit('newsApi')) return Promise.resolve([]);
+            return this.callNewsAPI(source.endpoint, source.params)
+                .then(articles => articles.filter(article => !this.containsKeywords(article.title + ' ' + article.description, this.sportsKeywords)))
+                .catch(error => {
+                    console.error(`❌ 세계뉴스 수집 실패 (${source.endpoint}):`, error.message);
+                    return [];
+                });
+        });
+
+        const results = await Promise.all(apiPromises);
+        const allArticles = results.flat();
+        const qualityArticles = this.selectHighQualityNews(allArticles, 'world');
+        const processedArticles = await this.processArticlesWithEnhancedTranslation(qualityArticles, 'world');
+        console.log(`✅ 세계뉴스 처리 완료: ${processedArticles.length}개`);
+        return processedArticles;
+    }
+
+    // 한국 뉴스 수집
+    async fetchEnhancedKoreaNews(forceRefresh = false) {
+        console.log('🇰🇷 한국뉴스 수집 중...');
+        const promises = [];
+
+        // 1. Naver API (한국어)
+        if (this.checkRateLimit('naver')) {
+            promises.push(this.callEnhancedNaverAPI().catch(error => {
+                console.error('❌ Naver API 수집 실패:', error.message);
+                return [];
+            }));
+        }
+
+        // 2. News API (해외 시각 한국 뉴스)
+        if (this.checkRateLimit('newsApi')) {
+            promises.push(this.callNewsAPI('everything', {
+                q: 'Korea OR Seoul OR "South Korea" OR Samsung OR Hyundai',
+                language: 'en', pageSize: 25, sortBy: 'publishedAt',
+                sources: 'bbc-news,reuters,cnn,bloomberg,associated-press,wall-street-journal'
+            }).then(koreanArticles => koreanArticles.filter(article => {
+                const content = article.title + ' ' + article.description;
+                return this.containsKeywords(content, ['korea', 'korean', 'seoul', 'south korea']) && !this.containsKeywords(content, this.sportsKeywords);
+            })).catch(error => {
+                console.error('❌ NewsAPI 한국뉴스 수집 실패:', error.message);
+                return [];
+            }));
+        }
+
+        const results = await Promise.all(promises);
+        const allArticles = results.flat();
+        const qualityArticles = this.selectHighQualityNews(allArticles, 'korea');
+        const processedArticles = await this.processArticlesWithEnhancedTranslation(qualityArticles, 'korea');
+        console.log(`✅ 한국뉴스 처리 완료: ${processedArticles.length}개`);
+        return processedArticles;
+    }
+
+    // 일본 뉴스 수집 (일본어 원문 강화)
+    async fetchEnhancedJapanNews(forceRefresh = false) {
+        console.log('🇯🇵 일본뉴스 수집 중...');
+        const sources = [
+            // 1. 일본 관련 주요 영문 뉴스
+            { endpoint: 'everything', params: { q: 'Japan OR Tokyo OR Kishida OR Nikkei OR "Bank of Japan"', language: 'en', pageSize: 30, sortBy: 'publishedAt', sources: 'bbc-news,reuters,bloomberg,associated-press,wall-street-journal' } },
+            // 2. 일본어 헤드라인 (일본어 원문)
+            { endpoint: 'top-headlines', params: { country: 'jp', language: 'ja', pageSize: 25 } },
+            // 3. 일본어로 주요 키워드 검색
+            { endpoint: 'everything', params: { q: '政治 OR 経済 OR 技術', language: 'ja', pageSize: 15, sortBy: 'publishedAt' } }
+        ];
+
+        const apiPromises = sources.map(source => {
+            if (!this.checkRateLimit('newsApi')) return Promise.resolve([]);
+            return this.callNewsAPI(source.endpoint, source.params)
+                .then(articles => articles.filter(article => {
+                    const content = (article.title + ' ' + article.description).toLowerCase();
+                    return !this.containsKeywords(content, this.sportsKeywords);
+                }))
+                .catch(error => {
+                    console.error(`❌ 일본뉴스 수집 실패 (${source.endpoint}):`, error.message);
+                    return [];
+                });
+        });
+
+        const results = await Promise.all(apiPromises);
+        const allArticles = results.flat();
+        
+        // 언어 정보 명확화 (API 응답에 없는 경우 추론)
+        allArticles.forEach(article => {
+            if (!article.language) {
+                 if (/[ぁ-んァ-ン一-龯]/.test(article.title)) {
+                    article.language = 'ja';
+                } else {
+                    article.language = 'en';
+                }
+            }
+        });
+
+        const qualityArticles = this.selectHighQualityNews(allArticles, 'japan');
+        const processedArticles = await this.processArticlesWithEnhancedTranslation(qualityArticles, 'japan');
+        console.log(`✅ 일본뉴스 처리 완료: ${processedArticles.length}개`);
+        return processedArticles;
+    }
+
+    // 기사 처리 및 번역 (병렬)
+    async processArticlesWithEnhancedTranslation(articles, section) {
+        const articlesToProcess = articles.slice(0, MAX_ARTICLES_PER_SECTION);
+        console.log(`🔄 ${section} 섹션 기사 처리 및 번역 시작 (${articlesToProcess.length}개 병렬 처리)`);
+        const processingPromises = articlesToProcess.map(article =>
+            this.processSingleArticle(article).catch(error => {
+                console.error(`❌ 기사 처리 실패 (${article.title?.substring(0, 30)}):`, error.message);
+                return this.fallbackProcessArticle(article);
+            })
+        );
+        const processedArticles = await Promise.all(processingPromises);
+        return processedArticles.filter(Boolean);
+    }
+
+    // 단일 기사 처리 (번역, 메타데이터 분석, 키워드 강조)
+    async processSingleArticle(article) {
+        let translatedContent;
+
+        // 1. 키워드 추출 (원문 기준)
+        const contentForKeywords = article.title + ' ' + (article.description || '');
+        const keywords = this.extractAdvancedKeywords(contentForKeywords);
+
+        if (article.isKorean) {
+            // 2-K. 한국 뉴스: 키워드 볼드체 적용
+            translatedContent = {
+                // 제목에는 볼드체 적용하지 않음 (가독성 고려)
+                translatedTitle: article.title, 
+                summary: this.highlightKeywords(this.createEnhancedSummary(article), keywords),
+                detailed: this.highlightKeywords(this.formatDetailedContent(article.description), keywords),
+                fullContent: this.highlightKeywords(this.formatFullContent(article), keywords)
+            };
+        } else {
+            // 2-E. 해외 뉴스: JSON 기반 AI 번역 시스템 사용
+            const language = article.language || 'en';
+            translatedContent = await this.translateArticleEnhanced(article, language);
+        }
+
+        const contentForAnalysis = article.title + ' ' + article.description;
+        const marks = this.analyzeAdvancedMarks(contentForAnalysis);
+        const stars = Math.min(5, Math.max(1, Math.round(article.qualityScore / 20)));
+        const category = this.classifyAdvancedCategory(contentForAnalysis);
+        const timeAgo = this.calculateTimeAgo(article.publishedAt);
+
+        // 모바일 최적화용 설명 생성 시 HTML 태그 제거
+        const cleanShortDesc = (translatedContent.detailed || article.description || '').replace(/<[^>]*>/g, '').substring(0, 120) + '...';
+
+        return {
+            ...article,
+            translatedTitle: translatedContent.translatedTitle,
+            summary: translatedContent.summary,
+            description: translatedContent.detailed, // 상세 내용(detailed)을 description 필드에 매핑
+            fullContent: translatedContent.fullContent,
+            marks,
+            stars,
+            category,
+            timeAgo,
+            keywords,
+            mobileOptimized: {
+                title: translatedContent.translatedTitle || article.title,
+                shortDesc: cleanShortDesc,
+                tags: [category, timeAgo, `★${stars}`].concat(marks)
+            }
+        };
+    }
+
+    // 기사 처리 실패 시 폴백
+    fallbackProcessArticle(article) {
+        const timeAgo = this.calculateTimeAgo(article.publishedAt);
+        return {
+            ...article,
+            translatedTitle: article.title,
+            summary: this.createEnhancedSummary(article),
+            description: this.formatDetailedContent(article.description),
+            fullContent: this.formatFullContent(article),
+            marks: ['오류'],
+            stars: 2,
+            category: '일반',
+            timeAgo: timeAgo,
+            keywords: ['뉴스'],
+            mobileOptimized: {
+                title: article.title,
+                shortDesc: (article.description || '').replace(/<[^>]*>/g, '').substring(0, 120) + '...',
+                tags: ['일반', timeAgo, '★2', '처리 오류']
+            }
+        };
+    }
+
+    // --- AI 번역 시스템 (JSON 기반으로 안정성 극대화) ---
+
+    // 기사 번역 (JSON 기반 시스템 우선 호출, 폴백 포함)
+    async translateArticleEnhanced(article, language = 'en') {
+        const content = article.title + '\n\n' + (article.description || '');
+        
+        // 1. OpenAI JSON 번역 시도 (주요 시스템)
+        if (this.apis.openAi && this.checkRateLimit('openAi')) {
+            try {
+                const result = await this.callOpenAIJsonTranslation(content, language);
+                // 필수 항목(제목, 요약, 상세, 전문)이 모두 있는지 확인
+                if (result && result.translatedTitle && result.summary && result.detailed && result.fullContent) return result;
+            } catch (error) {
+                console.error(`❌ OpenAI JSON 번역 실패 (${language}, ${article.title.substring(0, 20)}):`, error.message);
+            }
+        }
+        
+        // 2. Skywork AI 번역 시도 (백업, 텍스트 기반)
+        if (this.apis.skyworkAi && this.checkRateLimit('skywork')) {
+             try {
+                const resultText = await this.callSkyworkAIEnhancedTranslation(content, language);
+                const parsed = this.parseEnhancedTranslationResult(resultText);
+                if (parsed.translatedTitle && parsed.summary) return parsed;
+            } catch (error) {
+                console.error(`❌ Skywork AI 번역 실패 (${language}, ${article.title.substring(0, 20)}):`, error.message);
+            }
+        }
+        
+        // 3. 실패 시 기본 처리 (원문 기반 구조화)
+        console.log(`🔧 기본 시스템 사용 (AI 번역 실패) (${article.title.substring(0, 20)})`);
+        return this.basicEnhancedTranslateAndSummarize(article);
+    }
+
+    // OpenAI JSON 번역 호출
+    async callOpenAIJsonTranslation(content, language = 'en') {
+        const startTime = Date.now();
+        const sourceLanguage = language === 'ja' ? '일본어' : '영어';
+
+        // 시스템 프롬프트: JSON 스키마 정의 및 요구사항 명시
+        const systemPrompt = `당신은 전문 뉴스 번역가입니다. ${sourceLanguage} 뉴스를 자연스러운 한국어로 번역하고 결과를 JSON 형식으로 반환해야 합니다. 다음 스키마를 엄격히 준수하세요:
+{
+  "translatedTitle": "번역된 제목 (명확하고 완전한 문장)",
+  "summary": [
+    "첫 번째 핵심 요약 (완전한 문장, ~했다/~이다 체)",
+    "두 번째 핵심 요약",
+    "세 번째 핵심 요약"
+  ],
+  "detailed": "상세 내용 (2-3 문단으로 구성된 핵심 내용 번역, 문단 사이는 줄바꿈(\\n\\n)으로 구분. 들여쓰기나 불필요한 기호 사용 금지.)",
+  "fullContent": "전문 번역 (원문 전체를 빠짐없이 번역, 문단 사이는 줄바꿈(\\n\\n)으로 구분. 누락 금지.)"
+}
+모든 내용은 간결하고 명확한 뉴스 보도 문체여야 하며, 원문의 의미를 정확하게 전달해야 합니다. 말줄임표(...)는 절대 사용하지 마세요.`;
+
+        try {
+            const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+                model: 'gpt-3.5-turbo-0125', // JSON 모드 지원 모델
+                response_format: { type: "json_object" }, // JSON 모드 활성화
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `다음 뉴스를 번역해주세요:\n\n${content}` }
+                ],
+                max_tokens: 2000,
+                temperature: 0.2 // 정확성 향상
+            }, {
+                headers: { 'Authorization': `Bearer ${this.apis.openAi}`, 'Content-Type': 'application/json' },
+                timeout: API_TIMEOUTS.OPENAI
+            });
+
+            this.updateApiMetrics('openAi', true, Date.now() - startTime);
+            const jsonResult = JSON.parse(response.data.choices[0].message.content);
+
+            // 결과 포맷팅 (프론트엔드 요구사항에 맞춤)
+            return {
+                translatedTitle: jsonResult.translatedTitle,
+                summary: jsonResult.summary.map(item => `• ${item.trim()}`).join('\n'),
+                detailed: this.formatJsonContent(jsonResult.detailed),
+                fullContent: this.formatJsonContent(jsonResult.fullContent)
+            };
+
+        } catch (error) {
+            this.updateApiMetrics('openAi', false, Date.now() - startTime, error.message);
+            throw error;
+        }
+    }
+
+    // JSON 번역 결과 포맷팅 (들여쓰기 추가)
+    formatJsonContent(content) {
+        if (!content) return '    내용이 없습니다.';
+        // 문단 구분을 유지하면서 각 문단 앞에 들여쓰기 추가
+        return content.split('\n\n').map(p => `    ${p.trim()}`).filter(p => p.trim()).join('\n\n');
+    }
+
+    // (폴백용) Skywork AI 텍스트 기반 번역 (기존 방식 유지)
+    async callSkyworkAIEnhancedTranslation(content, language = 'en') {
+        const startTime = Date.now();
+        const sourceLanguage = language === 'ja' ? '일본어' : '영어';
+        const prompt = `다음 ${sourceLanguage} 뉴스를 한국어로 정확하게 번역해주세요. 반드시 제목:, 요약:, 상세:, 전문: 형식으로 작성하고, 문단을 나누어 가독성 있게 편집해주세요. 줄임표는 사용하지 말고 모든 내용을 완전히 번역해야 합니다.\n\n[뉴스 원문]\n${content}`;
+        try {
+            const response = await axios.post('https://api.skywork.ai/v1/chat/completions', {
+                model: 'skywork-lite',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 1500,
+                temperature: 0.4
+            }, {
+                headers: { 'Authorization': `Bearer ${this.apis.skyworkAi}`, 'Content-Type': 'application/json' },
+                timeout: API_TIMEOUTS.SKYWORK
+            });
+            this.updateApiMetrics('skyworkAi', true, Date.now() - startTime);
+            return response.data.choices[0].message.content;
+        } catch (error) {
+            this.updateApiMetrics('skyworkAi', false, Date.now() - startTime, error.message);
+            throw error;
+        }
+    }
+
+    // (폴백용) 텍스트 기반 번역 결과 파싱
+    parseEnhancedTranslationResult(result) {
+        let translatedTitle = '', summary = '', detailed = '', fullContent = '', currentSection = '';
+        const titleMatch = result.match(/제목:\s*(.*)/);
+        if (titleMatch && titleMatch[1]) translatedTitle = titleMatch[1].trim();
+
+        for (const line of result.split('\n')) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+            if (trimmedLine.startsWith('제목:')) { currentSection = 'title'; continue; }
+            if (trimmedLine.startsWith('요약:')) { currentSection = 'summary'; continue; }
+            if (trimmedLine.startsWith('상세:')) { currentSection = 'detailed'; continue; }
+            if (trimmedLine.startsWith('전문:')) { currentSection = 'full'; continue; }
+
+            if (currentSection === 'summary') {
+                if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || trimmedLine.startsWith('*')) summary += trimmedLine.replace(/^[•\-*]\s*/, '• ') + '\n';
+                else if (summary.length === 0) summary += '• ' + trimmedLine + '\n';
+            } else if (currentSection === 'detailed') {
+                detailed += '    ' + trimmedLine + '\n\n';
+            } else if (currentSection === 'full') {
+                fullContent += '    ' + trimmedLine + '\n\n';
+            }
+        }
+
+        if (!translatedTitle) translatedTitle = result.split('\n').find(line => line.trim()) || '번역된 제목 없음';
+        const fallbackDescription = result.substring(0, 500);
+        return {
+            translatedTitle: translatedTitle,
+            summary: summary.trim() || this.createEnhancedSummary({ description: fallbackDescription }),
+            detailed: detailed.trim() || this.formatDetailedContent(fallbackDescription),
+            fullContent: fullContent.trim() || this.formatFullContent({ description: result })
+        };
+    }
+
+
+    // --- X (Twitter) API 통합 함수들 ---
+
+    // X API 인증 (Bearer Token 발급 및 캐싱)
     async getXBearerToken() {
         // 토큰이 유효하면 재사용 (만료 5분 전까지 유효)
         if (this.xBearerToken && Date.now() < this.xTokenExpiry - (5 * 60000)) {
@@ -318,12 +661,15 @@ class EnhancedNewsSystemXIntegrated {
         } catch (error) {
             const errorMessage = error.response ? `${error.response.status}: ${error.message}` : error.message;
             console.error('❌ X API 인증 실패:', errorMessage);
+            if (error.response && error.response.status === 403) {
+                console.error('⚠️ X API 권한 오류(403): API 키 권한 및 유료 플랜 여부를 확인하세요.');
+            }
             this.updateApiMetrics('xApi', false, 0, 'Authentication failed');
             return null;
         }
     }
 
-    // *** 신규: 소셜 버즈(X 트렌드) 수집
+    // 소셜 버즈(X 트렌드) 수집
     async fetchSocialBuzz() {
         console.log('🔥 소셜 버즈(X 트렌드) 수집 중...');
         const token = await this.getXBearerToken();
@@ -341,7 +687,7 @@ class EnhancedNewsSystemXIntegrated {
         const results = await Promise.all(promises);
         let allBuzz = results.flat();
 
-        // 중복 제거 및 볼륨 합산 (여러 지역에서 동일 트렌드가 나타날 경우)
+        // 중복 제거 및 볼륨 합산
         const uniqueBuzzMap = new Map();
         allBuzz.forEach(buzz => {
             const key = buzz.name.toLowerCase().replace(/\s+/g, '');
@@ -350,9 +696,8 @@ class EnhancedNewsSystemXIntegrated {
             } else {
                 const existing = uniqueBuzzMap.get(key);
                 if ((buzz.volume || 0) > (existing.volume || 0)) {
-                    existing.volume = buzz.volume; // 더 큰 볼륨으로 갱신
+                    existing.volume = buzz.volume;
                 }
-                // 지역 정보 병합
                 if (!existing.regionName.includes(buzz.regionName)) {
                     existing.regionName += `, ${buzz.regionName}`;
                 }
@@ -361,7 +706,7 @@ class EnhancedNewsSystemXIntegrated {
 
         const uniqueBuzz = Array.from(uniqueBuzzMap.values());
 
-        // 트윗량(Volume) 순으로 정렬 (높은 순)
+        // 트윗량(Volume) 순으로 정렬
         uniqueBuzz.sort((a, b) => (b.volume || 0) - (a.volume || 0));
 
         // 번역 처리 (병렬)
@@ -371,14 +716,13 @@ class EnhancedNewsSystemXIntegrated {
         return processedBuzz;
     }
 
-    // *** 신규: 특정 지역 X 트렌드 수집 (API v1.1 사용)
+    // 특정 지역 X 트렌드 수집 (API v1.1 사용)
     async fetchXTrendsByLocation(token, woeid, region, regionName) {
         if (!this.checkRateLimit('xApi')) {
             return [];
         }
 
         const startTime = Date.now();
-        // X API v1.1 Trends endpoint 사용 (v2는 제한적 접근만 허용)
         const url = `https://api.twitter.com/1.1/trends/place.json?id=${woeid}`;
 
         try {
@@ -418,15 +762,15 @@ class EnhancedNewsSystemXIntegrated {
         }
     }
 
-    // *** 신규: 버즈 아이템 번역 처리 (병렬)
+    // 버즈 아이템 번역 처리 (병렬)
     async processBuzzWithTranslation(buzzItems) {
         const translationPromises = buzzItems.map(item => {
-            // 한국 트렌드이거나 이미 한글이 포함된 경우 번역 생략 (효율성)
+            // 한국 트렌드이거나 이미 한글이 포함된 경우 번역 생략
             if (item.region === 'korea' || /[가-힣]/.test(item.name)) {
                 return Promise.resolve(item);
             }
 
-            // AI 번역 시도 (기존 시스템 활용)
+            // AI 번역 시도
             return this.translateKeyword(item.name)
                 .then(translated => {
                     if (translated && translated !== item.name) {
@@ -435,7 +779,6 @@ class EnhancedNewsSystemXIntegrated {
                     return item;
                 })
                 .catch(() => {
-                    // 번역 실패 시 원본 이름 사용
                     return item;
                 });
         });
@@ -443,19 +786,19 @@ class EnhancedNewsSystemXIntegrated {
         return await Promise.all(translationPromises);
     }
 
-    // *** 신규: 키워드 번역 전용 (AI 활용)
+    // 키워드 번역 전용 (AI 활용)
     async translateKeyword(keyword) {
-        // OpenAI 사용 (Rate Limit 확인)
+        // OpenAI 사용
         if (this.apis.openAi && this.checkRateLimit('openAi')) {
             try {
                 const startTime = Date.now();
-                // 키워드 번역 전용 프롬프트 (단어만 번역하도록 유도)
+                // 키워드 번역 전용 프롬프트
                 const prompt = `Translate the following social media trend keyword or hashtag into natural Korean. Provide ONLY the single best translation, without any explanation, quotation marks, or extra formatting.\n\nKeyword: ${keyword}\nTranslation:`;
 
                 const response = await axios.post('https://api.openai.com/v1/chat/completions', {
                     model: 'gpt-3.5-turbo-0125',
                     messages: [{ role: 'user', content: prompt }],
-                    max_tokens: 30, // 키워드이므로 짧게 설정
+                    max_tokens: 30,
                     temperature: 0.1
                 }, {
                     headers: { 'Authorization': `Bearer ${this.apis.openAi}` },
@@ -470,256 +813,22 @@ class EnhancedNewsSystemXIntegrated {
 
             } catch (error) {
                 this.updateApiMetrics('openAi', false, 0, error.message);
-                // 실패 시 로깅만 하고 넘어감
             }
         }
-        // (Skywork 등 다른 번역 엔진도 유사하게 추가 가능)
 
         return keyword; // 실패 시 원본 반환
     }
 
-    // --- X (Twitter) API 통합 함수들 끝 ---
-    
-    // --- 기존 뉴스 수집 및 처리 함수들 (enhanced-news-system-optimized.js에서 가져옴) ---
+    // --- API 호출 함수들 ---
 
-    async fetchEnhancedWorldNews(forceRefresh = false) {
-        console.log('🌍 세계뉴스 수집 중...');
-        const sources = [
-            { endpoint: 'top-headlines', params: { category: 'general', language: 'en', pageSize: 30, sources: 'bbc-news,reuters,associated-press,cnn' } },
-            { endpoint: 'everything', params: { q: 'breaking OR urgent OR crisis OR government OR president', language: 'en', pageSize: 25, sortBy: 'publishedAt', sources: 'bbc-news,reuters,the-guardian-uk,bloomberg' } },
-            { endpoint: 'top-headlines', params: { category: 'business', language: 'en', pageSize: 20, sources: 'bloomberg,financial-times,wall-street-journal' } }
-        ];
-
-        const apiPromises = sources.map(source => {
-            if (!this.checkRateLimit('newsApi')) return Promise.resolve([]);
-            return this.callNewsAPI(source.endpoint, source.params)
-                .then(articles => articles.filter(article => !this.containsKeywords(article.title + ' ' + article.description, this.sportsKeywords)))
-                .catch(error => {
-                    console.error(`❌ 세계뉴스 수집 실패 (${source.endpoint}):`, error.message);
-                    return [];
-                });
-        });
-
-        const results = await Promise.all(apiPromises);
-        const allArticles = results.flat();
-        const qualityArticles = this.selectHighQualityNews(allArticles, 'world');
-        const processedArticles = await this.processArticlesWithEnhancedTranslation(qualityArticles, 'world');
-        console.log(`✅ 세계뉴스 처리 완료: ${processedArticles.length}개`);
-        return processedArticles;
-    }
-
-    async fetchEnhancedKoreaNews(forceRefresh = false) {
-        console.log('🇰🇷 한국뉴스 수집 중...');
-        const promises = [];
-
-        if (this.checkRateLimit('naver')) {
-            promises.push(this.callEnhancedNaverAPI().catch(error => {
-                console.error('❌ Naver API 수집 실패:', error.message);
-                return [];
-            }));
-        }
-
-        if (this.checkRateLimit('newsApi')) {
-            promises.push(this.callNewsAPI('everything', {
-                q: 'Korea OR Korean OR Seoul OR "South Korea" OR Samsung OR LG',
-                language: 'en', pageSize: 20, sortBy: 'publishedAt',
-                sources: 'bbc-news,reuters,cnn,bloomberg,associated-press'
-            }).then(koreanArticles => koreanArticles.filter(article => {
-                const content = article.title + ' ' + article.description;
-                return this.containsKeywords(content, ['korea', 'korean', 'seoul', 'south korea']) && !this.containsKeywords(content, this.sportsKeywords);
-            })).catch(error => {
-                console.error('❌ NewsAPI 한국뉴스 수집 실패:', error.message);
-                return [];
-            }));
-        }
-
-        const results = await Promise.all(promises);
-        const allArticles = results.flat();
-        const qualityArticles = this.selectHighQualityNews(allArticles, 'korea');
-        const processedArticles = await this.processArticlesWithEnhancedTranslation(qualityArticles, 'korea');
-        console.log(`✅ 한국뉴스 처리 완료: ${processedArticles.length}개`);
-        return processedArticles;
-    }
-
-    async fetchEnhancedJapanNews(forceRefresh = false) {
-        console.log('🇯🇵 일본뉴스 수집 중...');
-        const sources = [
-            { endpoint: 'everything', params: { q: 'Japan OR Japanese OR Tokyo OR "Prime Minister Japan" OR Kishida OR Nikkei', language: 'en', pageSize: 25, sortBy: 'publishedAt', sources: 'bbc-news,reuters,cnn,bloomberg,associated-press' } },
-            { endpoint: 'everything', params: { q: '(Japan OR Japanese) AND (economy OR politics OR society OR technology)', language: 'en', pageSize: 20, sortBy: 'publishedAt' } },
-            { endpoint: 'top-headlines', params: { country: 'jp', pageSize: 10 } }
-        ];
-
-        const apiPromises = sources.map(source => {
-            if (!this.checkRateLimit('newsApi')) return Promise.resolve([]);
-            return this.callNewsAPI(source.endpoint, source.params)
-                .then(articles => articles.filter(article => {
-                    const content = (article.title + ' ' + article.description).toLowerCase();
-                    const isRelevant = source.params.country === 'jp' || this.containsKeywords(content, ['japan', 'japanese', 'tokyo', 'nikkei', 'kishida']);
-                    return isRelevant && !this.containsKeywords(content, this.sportsKeywords);
-                }))
-                .catch(error => {
-                    console.error(`❌ 일본뉴스 수집 실패 (${source.endpoint}):`, error.message);
-                    return [];
-                });
-        });
-
-        const results = await Promise.all(apiPromises);
-        const allArticles = results.flat();
-        const qualityArticles = this.selectHighQualityNews(allArticles, 'japan');
-        const processedArticles = await this.processArticlesWithEnhancedTranslation(qualityArticles, 'japan');
-        console.log(`✅ 일본뉴스 처리 완료: ${processedArticles.length}개`);
-        return processedArticles;
-    }
-
-    async processArticlesWithEnhancedTranslation(articles, section) {
-        const articlesToProcess = articles.slice(0, MAX_ARTICLES_PER_SECTION);
-        console.log(`🔄 ${section} 섹션 기사 처리 및 번역 시작 (${articlesToProcess.length}개 병렬 처리)`);
-        const processingPromises = articlesToProcess.map(article =>
-            this.processSingleArticle(article).catch(error => {
-                console.error(`❌ 기사 처리 실패 (${article.title?.substring(0, 30)}):`, error.message);
-                return this.fallbackProcessArticle(article);
-            })
-        );
-        const processedArticles = await Promise.all(processingPromises);
-        return processedArticles.filter(Boolean);
-    }
-
-    async processSingleArticle(article) {
-        let translatedContent;
-        if (article.isKorean) {
-            translatedContent = {
-                translatedTitle: article.title,
-                summary: this.createEnhancedSummary(article),
-                detailed: this.formatDetailedContent(article.description),
-                fullContent: this.formatFullContent(article)
-            };
-        } else {
-            translatedContent = await this.translateArticleEnhanced(article);
-        }
-
-        const contentForAnalysis = article.title + ' ' + article.description;
-        const marks = this.analyzeAdvancedMarks(contentForAnalysis);
-        const stars = Math.min(5, Math.max(1, Math.round(article.qualityScore / 20)));
-        const category = this.classifyAdvancedCategory(contentForAnalysis);
-        const timeAgo = this.calculateTimeAgo(article.publishedAt);
-        const keywords = this.extractAdvancedKeywords(contentForAnalysis);
-
-        return {
-            ...article,
-            translatedTitle: translatedContent.translatedTitle,
-            summary: translatedContent.summary,
-            description: translatedContent.detailed,
-            fullContent: translatedContent.fullContent,
-            marks,
-            stars,
-            category,
-            timeAgo,
-            keywords,
-            mobileOptimized: {
-                title: translatedContent.translatedTitle || article.title,
-                shortDesc: (translatedContent.detailed || article.description || '').substring(0, 120) + '...',
-                tags: [category, timeAgo, `★${stars}`].concat(marks)
-            }
-        };
-    }
-
-    fallbackProcessArticle(article) {
-        const timeAgo = this.calculateTimeAgo(article.publishedAt);
-        return {
-            ...article,
-            translatedTitle: article.title,
-            summary: this.createEnhancedSummary(article),
-            description: this.formatDetailedContent(article.description),
-            fullContent: this.formatFullContent(article),
-            marks: ['오류'],
-            stars: 2,
-            category: '일반',
-            timeAgo: timeAgo,
-            keywords: ['뉴스'],
-            mobileOptimized: {
-                title: article.title,
-                shortDesc: (article.description || '').substring(0, 120) + '...',
-                tags: ['일반', timeAgo, '★2', '처리 오류']
-            }
-        };
-    }
-
-    async translateArticleEnhanced(article) {
-        const content = article.title + '\n\n' + article.description;
-        if (this.apis.openAi && this.checkRateLimit('openAi')) {
-            try {
-                const result = await this.callOpenAIEnhancedTranslation(content);
-                const parsed = this.parseEnhancedTranslationResult(result);
-                if (parsed.translatedTitle && parsed.summary) return parsed;
-            } catch (error) {
-                console.error(`❌ OpenAI 번역 실패 (${article.title.substring(0, 20)}):`, error.message);
-            }
-        }
-        if (this.apis.skyworkAi && this.checkRateLimit('skywork')) {
-            try {
-                const result = await this.callSkyworkAIEnhancedTranslation(content);
-                const parsed = this.parseEnhancedTranslationResult(result);
-                if (parsed.translatedTitle && parsed.summary) return parsed;
-            } catch (error) {
-                console.error(`❌ Skywork AI 번역 실패 (${article.title.substring(0, 20)}):`, error.message);
-            }
-        }
-        console.log(`🔧 기본 번역 시스템 사용 (${article.title.substring(0, 20)})`);
-        return this.basicEnhancedTranslateAndSummarize(article);
-    }
-
-    async callOpenAIEnhancedTranslation(content) {
-        const startTime = Date.now();
-        const prompt = `다음 영문 뉴스를 전문적이고 자연스러운 한국어로 번역해주세요. 모바일 및 PC 가독성을 위해 형식을 엄격히 준수해야 합니다.\n\n[영문 뉴스]\n${content}\n\n[요구사항]\n1. 문체: 간결하고 명확한 뉴스 보도 문체 사용 (예: ~했다, ~이다).\n2. 정확성: 원문의 의미와 뉘앙스를 정확하게 전달. 오역 및 누락 금지.\n3. 형식 준수: 아래 지정된 형식(제목:, 요약:, 상세:, 전문:)을 반드시 따를 것.\n4. 가독성: 문단 구분을 명확히 하고 들여쓰기 사용. 굵은 글씨, 특수 기호, 줄임표(...) 사용 금지.\n\n[번역 형식]\n제목: [완전하고 자연스러운 한국어 제목]\n\n요약:\n• 첫 번째 핵심 내용 (완전한 문장으로).\n• 두 번째 핵심 내용 (완전한 문장으로).\n• 세 번째 핵심 내용 (완전한 문장으로).\n\n상세:\n    [뉴스의 배경과 주요 사실을 설명하는 첫 번째 문단. 2-3문장으로 구성.]\n\n    [관련된 세부 사항과 추가 정보를 다루는 두 번째 문단. 2-3문장으로 구성.]\n\n    [영향, 전망, 또는 전문가 의견을 분석하는 세 번째 문단. 2-3문장으로 구성.]\n\n전문:\n    [원문 전체를 완전히 번역한 첫 번째 문단. 세부사항 포함.]\n\n    [원문 전체를 완전히 번역한 두 번째 문단. 세부사항 포함.]\n\n    [원문 전체를 완전히 번역한 세 번째 문단. 세부사항 포함.]`;
-        try {
-            const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-                model: 'gpt-3.5-turbo-0125',
-                messages: [
-                    { role: 'system', content: '당신은 전문적인 뉴스 번역가이자 편집자입니다. 영문 뉴스를 한국어로 정확하게 번역하고 지정된 형식에 맞춰 정리합니다.' },
-                    { role: 'user', content: prompt }
-                ],
-                max_tokens: 1500,
-                temperature: 0.3
-            }, {
-                headers: { 'Authorization': `Bearer ${this.apis.openAi}`, 'Content-Type': 'application/json' },
-                timeout: API_TIMEOUTS.OPENAI
-            });
-            this.updateApiMetrics('openAi', true, Date.now() - startTime);
-            return response.data.choices[0].message.content;
-        } catch (error) {
-            this.updateApiMetrics('openAi', false, Date.now() - startTime, error.message);
-            throw error;
-        }
-    }
-
-    async callSkyworkAIEnhancedTranslation(content) {
-        const startTime = Date.now();
-        const prompt = `다음 영문 뉴스를 한국어로 정확하게 번역해주세요. 반드시 제목:, 요약:, 상세:, 전문: 형식으로 작성하고, 문단을 나누어 가독성 있게 편집해주세요. 줄임표는 사용하지 말고 모든 내용을 완전히 번역해야 합니다.\n\n[영문 뉴스]\n${content}`;
-        try {
-            const response = await axios.post('https://api.skywork.ai/v1/chat/completions', {
-                model: 'skywork-lite',
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 1200,
-                temperature: 0.4
-            }, {
-                headers: { 'Authorization': `Bearer ${this.apis.skyworkAi}`, 'Content-Type': 'application/json' },
-                timeout: API_TIMEOUTS.SKYWORK
-            });
-            this.updateApiMetrics('skyworkAi', true, Date.now() - startTime);
-            return response.data.choices[0].message.content;
-        } catch (error) {
-            this.updateApiMetrics('skyworkAi', false, Date.now() - startTime, error.message);
-            throw error;
-        }
-    }
-
+    // 환율 정보 수집
     async fetchEnhancedExchangeRates() {
         const startTime = Date.now();
         try {
             console.log('💱 환율 정보 수집 중...');
             const response = await axios.get('https://api.exchangerate-api.com/v4/latest/USD', {
                 timeout: API_TIMEOUTS.EXCHANGE_API,
-                headers: { 'User-Agent': 'EmarkNews/16.0.0' }
+                headers: { 'User-Agent': 'EmarkNews/18.0.0' }
             });
             const rates = response.data.rates;
             if (!rates.KRW || !rates.JPY) throw new Error('환율 데이터 누락');
@@ -739,6 +848,7 @@ class EnhancedNewsSystemXIntegrated {
         }
     }
 
+    // Naver API 호출 (병렬 쿼리)
     async callEnhancedNaverAPI() {
         const queries = ['정치 속보', '경제 주요뉴스', '사회 사건사고', '국제 외교', 'IT 기술동향', '금융 시장'];
         const apiPromises = queries.map(query => {
@@ -755,14 +865,15 @@ class EnhancedNewsSystemXIntegrated {
         return uniqueArticles;
     }
 
+    // Naver API 단일 쿼리 실행
     async fetchNaverNewsByQuery(query) {
         const startTime = Date.now();
         const config = {
-            params: { query, display: 8, start: 1, sort: 'date' },
+            params: { query, display: 10, start: 1, sort: 'date' },
             headers: {
                 'X-Naver-Client-Id': this.apis.naverClientId,
                 'X-Naver-Client-Secret': this.apis.naverClientSecret,
-                'User-Agent': 'EmarkNews/16.0.0'
+                'User-Agent': 'EmarkNews/18.0.0'
             },
             timeout: API_TIMEOUTS.NAVER_API
         };
@@ -780,7 +891,8 @@ class EnhancedNewsSystemXIntegrated {
                     publishedAt: item.pubDate,
                     source: { name: sourceName, display: this.getSourceDisplay(sourceName, item.pubDate) },
                     isKorean: true,
-                    qualityScore: 75
+                    language: 'ko',
+                    qualityScore: 75 // 기본 점수
                 };
             });
             this.updateApiMetrics('naverApi', true, Date.now() - startTime);
@@ -791,13 +903,14 @@ class EnhancedNewsSystemXIntegrated {
         }
     }
 
+    // News API 호출 (재시도 로직 포함)
     async callNewsAPI(endpoint, params) {
         const url = `https://newsapi.org/v2/${endpoint}`;
         const startTime = Date.now();
         const config = {
             params: { ...params, apiKey: this.apis.newsApi },
             timeout: API_TIMEOUTS.NEWS_API,
-            headers: { 'User-Agent': 'EmarkNews/16.0.0' }
+            headers: { 'User-Agent': 'EmarkNews/18.0.0' }
         };
         let response;
         const MAX_RETRIES = 2;
@@ -836,7 +949,8 @@ class EnhancedNewsSystemXIntegrated {
                     image: article.urlToImage,
                     publishedAt: article.publishedAt,
                     source: { name: article.source.name, display: this.getSourceDisplay(article.source.name, article.publishedAt) },
-                    isKorean: false
+                    isKorean: false,
+                    language: params.language || (params.country === 'jp' ? 'ja' : 'en') // 언어 정보 명시
                 }));
             this.updateApiMetrics('newsApi', true, Date.now() - startTime);
             return articles;
@@ -846,7 +960,69 @@ class EnhancedNewsSystemXIntegrated {
         }
     }
     
-    // --- 유틸리티 및 기타 함수들 ---
+    // --- 유틸리티 및 헬퍼 함수들 ---
+
+    // 키워드 하이라이팅 (볼드체 HTML 적용)
+    highlightKeywords(text, keywords) {
+        if (!text || !keywords || keywords.length === 0) return text;
+        
+        // 중요도가 높은 키워드 5개만 사용
+        const topKeywords = keywords.slice(0, 5);
+        let highlightedText = text;
+
+        topKeywords.forEach(keyword => {
+            // 정규식을 사용하여 키워드 찾기 (대소문자 구분 없음)
+            const regex = new RegExp(`(${this.escapeRegExp(keyword)})`, 'gi');
+            // 중복 적용 방지를 위한 임시 플레이스홀더 사용
+            if (!highlightedText.includes('[[HIGHLIGHT]]')) {
+                highlightedText = highlightedText.replace(regex, '[[HIGHLIGHT]]$1[[/HIGHLIGHT]]');
+            }
+        });
+
+        // 플레이스홀더를 <strong> 태그로 변환
+        highlightedText = highlightedText.replace(/\[\[HIGHLIGHT\]\]/g, '<strong>').replace(/\[\[\/HIGHLIGHT\]\]/g, '</strong>');
+        
+        return highlightedText;
+    }
+
+    escapeRegExp(string) {
+        // 정규식 특수 문자 이스케이프
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // 소스 및 시간 표시 (KST 기준)
+    getSourceDisplay(sourceName, publishedAt) {
+        const lowerSource = sourceName.toLowerCase().replace(/\s+/g, '-');
+        const mappedName = this.premiumSources[lowerSource]?.name || sourceName; 
+        const formattedTime = this.formatToKST(publishedAt); // KST 포맷팅 적용
+        return `${mappedName} | ${formattedTime}`;
+    }
+    
+    // ISO 시간을 한국 시간(KST) 형식으로 변환
+    formatToKST(isoString) {
+        try {
+            const date = new Date(isoString);
+            // 'ko-KR' 로케일과 'Asia/Seoul' 시간대를 명시적으로 사용
+            return date.toLocaleString('ko-KR', {
+                timeZone: 'Asia/Seoul',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', hour12: false
+            });
+        } catch (e) {
+            return '날짜 정보 없음';
+        }
+    }
+
+    // Naver 텍스트 클리닝 (말줄임표 제거 강화)
+    cleanNaverText(text) {
+        if (!text) return '';
+        let cleaned = text.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '').replace(/\s+/g, ' ').trim();
+        // 문장 끝의 말줄임표(...) 및 유니코드 말줄임표(…) 제거
+        cleaned = cleaned.replace(/(\.\.\.|\u2026)$/, ''); 
+        return cleaned;
+    }
+
+    // (이하 함수들은 원본 코드(ChatGPT/Gemini)의 내용을 그대로 유지합니다.)
 
     extractEnhancedSourceFromNaverLink(link) {
         if (!link) return 'Unknown Source';
@@ -910,39 +1086,6 @@ class EnhancedNewsSystemXIntegrated {
         const detailed = this.formatDetailedContent(translatedDescription);
         const fullContent = this.formatFullContent({ title: translatedTitle, description: translatedDescription });
         return { translatedTitle, summary, detailed, fullContent };
-    }
-
-    parseEnhancedTranslationResult(result) {
-        let translatedTitle = '', summary = '', detailed = '', fullContent = '', currentSection = '';
-        const titleMatch = result.match(/제목:\s*(.*)/);
-        if (titleMatch && titleMatch[1]) translatedTitle = titleMatch[1].trim();
-
-        for (const line of result.split('\n')) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) continue;
-            if (trimmedLine.startsWith('제목:')) { currentSection = 'title'; continue; }
-            if (trimmedLine.startsWith('요약:')) { currentSection = 'summary'; continue; }
-            if (trimmedLine.startsWith('상세:')) { currentSection = 'detailed'; continue; }
-            if (trimmedLine.startsWith('전문:')) { currentSection = 'full'; continue; }
-
-            if (currentSection === 'summary') {
-                if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || trimmedLine.startsWith('*')) summary += trimmedLine.replace(/^[•\-*]\s*/, '• ') + '\n';
-                else if (summary.length === 0) summary += '• ' + trimmedLine + '\n';
-            } else if (currentSection === 'detailed') {
-                detailed += '    ' + trimmedLine + '\n\n';
-            } else if (currentSection === 'full') {
-                fullContent += '    ' + trimmedLine + '\n\n';
-            }
-        }
-
-        if (!translatedTitle) translatedTitle = result.split('\n').find(line => line.trim()) || '번역된 제목 없음';
-        const fallbackDescription = result.substring(0, 500);
-        return {
-            translatedTitle: translatedTitle,
-            summary: summary.trim() || this.createEnhancedSummary({ description: fallbackDescription }),
-            detailed: detailed.trim() || this.formatDetailedContent(fallbackDescription),
-            fullContent: fullContent.trim() || this.formatFullContent({ description: result })
-        };
     }
 
     updateApiMetrics(apiName, success, duration, errorMessage = null) {
@@ -1076,7 +1219,7 @@ class EnhancedNewsSystemXIntegrated {
             const bImportant = importantKeywords.has(b[0]) ? 1 : 0;
             if (aImportant !== bImportant) return bImportant - aImportant;
             return b[1] - a[1];
-        }).slice(0, 12).map(([keyword, count]) => [keyword, Math.min(count, 50)]);
+        }).slice(0, 12).map(([keyword, count]) => keyword); // 프론트엔드 요구사항에 맞춰 키워드만 반환
     }
 
     isImportantKeyword(word) {
@@ -1089,20 +1232,6 @@ class EnhancedNewsSystemXIntegrated {
         const koreanStopWords = ['있는', '있는', '하는', '그는', '그녀는', '것은', '것이', '등을', '등의', '관련', '대한', '위해'];
         if (/[a-zA-Z]/.test(word)) return englishStopWords.includes(word.toLowerCase()) || word.length < 3;
         return koreanStopWords.includes(word) || word.length < 2;
-    }
-
-    getSourceDisplay(sourceName, publishedAt) {
-        const lowerSource = sourceName.toLowerCase().replace(/\s+/g, '-');
-        const mappedName = this.premiumSources[lowerSource]?.name || sourceName;
-        try {
-            return `${mappedName} | ${new Date(publishedAt).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}`;
-        } catch (e) {
-            return `${mappedName} | 날짜 정보 없음`;
-        }
-    }
-
-    cleanNaverText(text) {
-        return text ? text.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '').replace(/\s+/g, ' ').trim() : '';
     }
 
     generateId(url) {
@@ -1124,7 +1253,7 @@ class EnhancedNewsSystemXIntegrated {
         const recentArticles = this.filterRecentNews(uniqueArticles, 48);
         const scoredArticles = recentArticles.map(article => ({ ...article, qualityScore: this.calculateAdvancedQualityScore(article) }));
         scoredArticles.sort((a, b) => b.qualityScore - a.qualityScore);
-        return scoredArticles.slice(0, 15);
+        return scoredArticles.slice(0, MAX_ARTICLES_PER_SECTION + 5); // 버퍼를 두고 선택
     }
 
     calculateAdvancedQualityScore(article) {
@@ -1175,21 +1304,19 @@ class EnhancedNewsSystemXIntegrated {
                 world: [{
                     id: 'emergency-1', title: '뉴스 시스템 점검 중', description: '현재 뉴스 수집 시스템에 문제가 발생하여 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
                     translatedTitle: '뉴스 시스템 점검 중', summary: '• 뉴스 수집 시스템 오류 발생\n• 데이터 로드 실패\n• 잠시 후 재시도 요청',
-                    url: '#', publishedAt: now, source: { name: 'EmarkNews System', display: `EmarkNews System | ${new Date(now).toLocaleTimeString()}` },
+                    url: '#', publishedAt: now, source: { name: 'EmarkNews System', display: `EmarkNews System | ${this.formatToKST(now)}` },
                     stars: 1, category: '시스템', timeAgo: '방금 전',
-                    mobileOptimized: { title: '시스템 점검 중', shortDesc: '데이터 로드 실패. 잠시 후 재시도해주세요.', tags: ['시스템', '오류'] }
                 }],
                 korea: [], japan: [], buzz: []
             },
-            trending: [['점검중', 20], ['오류발생', 15]],
+            trending: ['점검중', '오류발생'],
             exchangeRates: this.getDefaultExchangeRates(),
             systemStatus: {
-                version: '16.0.0-x-integrated', lastUpdate: now, features: ['emergency-mode'], apiMetrics: this.getApiMetricsReport()
+                version: '18.0.0-final-optimized', lastUpdate: now, features: ['emergency-mode'], apiMetrics: this.getApiMetricsReport()
             }
         };
     }
     
-    // *** Rate Limit 체크 함수 수정 (X API 주기 반영)
     checkRateLimit(apiName) {
         const limit = this.rateLimits[apiName];
         if (!limit) return true;
@@ -1221,32 +1348,6 @@ class EnhancedNewsSystemXIntegrated {
         limit.requests++;
         return true;
     }
-
-    getSystemStatus() {
-        return {
-            status: 'running',
-            version: '16.0.0-x-integrated',
-            uptime: process.uptime(),
-            memory: process.memoryUsage(),
-            lastUpdate: this.lastUpdate,
-            cacheSize: this.cache.size,
-            isUpdating: this.isUpdating,
-            updateCounter: this.updateCounter,
-            features: [
-               'performance-optimization',
-               'parallel-news-fetching',
-               'parallel-translation-processing',
-               'robust-caching-with-promise-reuse',
-               'x-api-trends-integration',
-               'improved-error-handling-and-retry',
-               'optimized-api-timeouts',
-               'enhanced-translation-prompts',
-               'enhanced-ui-formatting'
-            ],
-            apiMetrics: this.getApiMetricsReport(),
-            rateLimits: this.rateLimits,
-        };
-    }
 }
 
-module.exports = EnhancedNewsSystemXIntegrated;
+module.exports = EmarkNewsSystem;
