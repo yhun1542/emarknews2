@@ -8,14 +8,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class', // 다크모드 사용 안 함 (디자인 통일)
             theme: {
                 extend: {
                     fontFamily: { 'sans': ['Pretendard', 'sans-serif'] },
                     colors: {
-                        'primary': '#4f46e5',
-                        'background': '#f8fafc',
-                        'surface': '#ffffff',
+                        'primary': '#4f46e5', 'background': '#f8fafc', 'surface': '#ffffff',
                         'section-world': '#b91c1c', 'section-korea': '#0284c7', 'section-japan': '#d97706', 'section-buzz': '#8b5cf6',
                     },
                 }
@@ -35,9 +32,13 @@
 <body class="font-sans text-gray-800 antialiased">
 
     <div id="loading" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        </div>
+        <svg class="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
 
-    <header class="bg-white shadow-md sticky top-0 z-40 border-b">
+    <header class="bg-surface shadow-md sticky top-0 z-40 border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-3">
                 <img src="/emarknews_logo_new.png" alt="EmarkNews Logo" class="h-12 w-auto">
@@ -60,11 +61,11 @@
     
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert"></div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-world border-b-2 border-section-world pb-2">🌍 세계뉴스</h2><div id="world-news"></div></section>
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-korea border-b-2 border-section-korea pb-2">🇰🇷 한국뉴스</h2><div id="korea-news"></div></section>
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-japan border-b-2 border-section-japan pb-2">🇯🇵 일본뉴스</h2><div id="japan-news"></div></section>
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-buzz border-b-2 border-section-buzz pb-2">🔥 소셜 버즈</h2><div id="buzz-news"></div></section>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-world border-b-2 border-section-world pb-2">🌍 세계뉴스</h2><div id="world-news" class="space-y-6"></div></section>
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-korea border-b-2 border-section-korea pb-2">🇰🇷 한국뉴스</h2><div id="korea-news" class="space-y-6"></div></section>
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-japan border-b-2 border-section-japan pb-2">🇯🇵 일본뉴스</h2><div id="japan-news" class="space-y-6"></div></section>
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-buzz border-b-2 border-section-buzz pb-2">🔥 소셜 버즈</h2><div id="buzz-news" class="space-y-4"></div></section>
         </div>
     </main>
 
@@ -73,16 +74,16 @@
             <div class="modal-content bg-white rounded-lg max-w-3xl w-full shadow-xl transform transition-transform scale-95" onclick="event.stopPropagation()">
                 <div class="p-6 lg:p-8">
                     <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1">
+                        <div class="flex-1 pr-4">
                             <h3 id="modal-translated-title" class="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight"></h3>
-                            <p id="modal-title" class="text-lg text-gray-500 mt-2 italic"></p>
+                            <p id="modal-title" class="text-base text-gray-500 mt-2 italic"></p>
                             <p id="modal-source" class="text-sm text-gray-400 mt-3"></p>
                         </div>
-                        <button onclick="closeModal()" class="ml-4 p-2 hover:bg-gray-100 rounded-full text-gray-500">&times;</button>
+                        <button onclick="closeModal()" class="p-2 -mt-2 -mr-2 text-2xl text-gray-400 hover:text-gray-600">&times;</button>
                     </div>
                     <img id="modal-image" class="w-full h-64 object-cover rounded-lg mb-6 hidden">
                     <div class="space-y-6 text-gray-700">
-                        <div>
+                        <div id="summary-container" class="hidden">
                             <h4 class="font-bold text-lg border-b pb-2 mb-3">핵심 요약</h4>
                             <div id="modal-summary" class="text-base leading-relaxed space-y-2"></div>
                         </div>
@@ -100,12 +101,56 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const newsSystem = new EmarkNews();
-            newsSystem.init();
-        });
+        // 전역 스코프에 모달 함수 노출
+        let currentModalArticle = null;
+        window.openModal = (article) => {
+            currentModalArticle = article;
+            const modal = document.getElementById('news-modal');
+            
+            document.getElementById('modal-translated-title').textContent = article.translatedTitle || article.title;
+            document.getElementById('modal-title').textContent = article.title;
+            document.getElementById('modal-source').textContent = `${article.source?.name || '출처 불명'} | ${new Date(article.publishedAt).toLocaleString('ko-KR')}`;
+            
+            const imageEl = document.getElementById('modal-image');
+            if(article.image) {
+                imageEl.src = article.image;
+                imageEl.classList.remove('hidden');
+            } else {
+                imageEl.classList.add('hidden');
+            }
+            
+            const summaryContainer = document.getElementById('summary-container');
+            const summaryEl = document.getElementById('modal-summary');
+            if (article.summary) {
+                summaryEl.innerHTML = article.summary.split('\n').filter(line => line.trim()).map(line => 
+                    `<div class="flex items-start modal-summary-item"><p>${line.replace(/^[•*-\s]*/, '')}</p></div>`
+                ).join('');
+                summaryContainer.classList.remove('hidden');
+            } else {
+                summaryContainer.classList.add('hidden');
+            }
+            
+            document.getElementById('modal-detailed').innerHTML = (article.description || '상세 내용이 없습니다.').replace(/\n/g, '<br>');
+            document.getElementById('modal-link').href = article.url || '#';
 
-        class EmarkNews {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                modal.querySelector('.modal-content').classList.remove('scale-95');
+            }, 10);
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closeModal = () => {
+            const modal = document.getElementById('news-modal');
+            modal.classList.remove('opacity-100');
+            modal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            document.body.style.overflow = 'auto';
+        };
+
+        // 앱 클래스
+        class EmarkNewsApp {
             constructor() {
                 this.newsData = null;
                 this.isFetching = false;
@@ -116,13 +161,11 @@
                     usdRate: document.getElementById('usd-rate'),
                     jpyRate: document.getElementById('jpy-rate'),
                     lastUpdate: document.getElementById('last-update'),
-                    modal: document.getElementById('news-modal'),
-                    modalContent: document.querySelector('.modal-content'),
                 };
             }
 
             init() {
-                console.log('🚀 EmarkNews 앱 초기화 (v20.0)');
+                console.log('🚀 EmarkNews 앱 초기화 (v20.1)');
                 this.elements.refreshBtn.addEventListener('click', () => this.loadNews(true));
                 this.loadNews();
             }
@@ -136,12 +179,13 @@
                 try {
                     const url = forceRefresh ? `/api/news?_force=true&t=${Date.now()}` : '/api/news';
                     const response = await fetch(url);
-                    if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+                    if (!response.ok) throw new Error(`서버 응답 오류: ${response.status}`);
+                    
                     this.newsData = await response.json();
                     this.renderAll();
                     this.elements.error.classList.add('hidden');
                 } catch (error) {
-                    console.error('❌ News Loading Failed:', error);
+                    console.error('❌ 뉴스 로딩 실패:', error);
                     this.elements.error.textContent = `뉴스 로딩 실패: ${error.message}. 잠시 후 다시 시도해주세요.`;
                     this.elements.error.classList.remove('hidden');
                 } finally {
@@ -152,18 +196,18 @@
             }
 
             renderAll() {
-                this.renderSection('world', this.newsData.sections.world, 'world-news');
-                this.renderSection('korea', this.newsData.sections.korea, 'korea-news');
-                this.renderSection('japan', this.newsData.sections.japan, 'japan-news');
+                this.renderSection(this.newsData.sections.world, 'world-news');
+                this.renderSection(this.newsData.sections.korea, 'korea-news');
+                this.renderSection(this.newsData.sections.japan, 'japan-news');
                 this.renderBuzzSection(this.newsData.sections.buzz, 'buzz-news');
                 this.updateHeader();
             }
             
             updateHeader() {
                 const { exchangeRates, systemStatus } = this.newsData;
-                if (exchangeRates) {
-                    this.elements.usdRate.textContent = parseFloat(exchangeRates.USD_KRW).toLocaleString();
-                    this.elements.jpyRate.textContent = parseFloat(exchangeRates.JPY_KRW_100).toLocaleString();
+                if (exchangeRates && exchangeRates.USD_KRW) {
+                    this.elements.usdRate.textContent = parseFloat(exchangeRates.USD_KRW).toLocaleString('ko-KR', {minimumFractionDigits: 2});
+                    this.elements.jpyRate.textContent = parseFloat(exchangeRates.JPY_KRW_100).toLocaleString('ko-KR', {minimumFractionDigits: 2});
                 }
                 if (systemStatus?.lastUpdate) {
                     const updateTime = new Date(systemStatus.lastUpdate).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
@@ -171,10 +215,10 @@
                 }
             }
             
-            renderSection(type, articles, containerId) {
+            renderSection(articles, containerId) {
                 const container = document.getElementById(containerId);
                 if (!articles || articles.length === 0) {
-                    container.innerHTML = `<p class="text-sm text-gray-500 p-4 text-center">관련 뉴스가 없습니다.</p>`;
+                    container.innerHTML = `<div class="text-sm text-gray-500 p-4 text-center rounded-lg bg-white">관련 뉴스가 없습니다.</div>`;
                     return;
                 }
                 container.innerHTML = articles.map(this.createNewsCardHTML).join('');
@@ -182,62 +226,56 @@
 
             createNewsCardHTML(article) {
                 const summaryHtml = (article.summary || '').split('\n').filter(line => line.trim()).map(line => 
-                    `<div class="news-summary-item-bullet text-sm text-gray-600">${line.replace(/^[•*-\s]*/, '')}</div>`
+                    `<div class="flex items-start news-summary-item-bullet"><p class="text-sm text-gray-600">${line.replace(/^[•*-\s]*/, '')}</p></div>`
                 ).join('');
 
+                // onclick 이벤트에 전달할 article 객체를 이스케이프 처리
+                const articleJsonString = JSON.stringify(article).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
                 return `
-                    <article class="news-card bg-surface rounded-xl shadow-lg p-5 cursor-pointer" onclick='window.openModal(${JSON.stringify(article)})'>
-                        <div class="flex items-center justify-between mb-3 text-xs font-medium">
-                            <span class="text-yellow-500 text-base">${'★'.repeat(article.stars || 3)}</span>
-                            <span class="text-gray-400">${article.timeAgo || ''}</span>
+                    <article class="news-card bg-surface rounded-xl shadow-lg p-5 cursor-pointer flex flex-col h-full" onclick='window.openModal(${articleJsonString})'>
+                        <div class="flex-grow">
+                            <div class="flex items-center justify-between mb-3 text-xs font-medium">
+                                <span class="text-yellow-500 text-base">${'★'.repeat(article.stars || 3)}</span>
+                                <span class="text-gray-400">${article.timeAgo || ''}</span>
+                            </div>
+                            <h3 class="font-bold text-lg text-gray-900 mb-3 leading-snug">${article.translatedTitle || article.title}</h3>
+                            <div class="space-y-1">${summaryHtml}</div>
                         </div>
-                        <h3 class="font-bold text-lg text-gray-900 mb-3 leading-snug">${article.translatedTitle || article.title}</h3>
-                        <div class="space-y-1">${summaryHtml}</div>
-                        <p class="text-xs text-gray-400 mt-4 truncate">${article.source?.name || '출처 불명'}</p>
+                        <p class="text-xs text-gray-400 mt-4 pt-4 border-t truncate flex-shrink-0">${article.source?.name || '출처 불명'}</p>
                     </article>
                 `;
             }
             
-            renderBuzzSection(buzzItems, containerId) { /* 이전 버전의 로직과 동일 */ }
-            
-            setRefreshButtonState(disabled) { /* 이전 버전의 로직과 동일 */ }
-        }
-
-        function openModal(article) {
-            if(!article) return;
-            document.getElementById('modal-translated-title').textContent = article.translatedTitle || article.title;
-            document.getElementById('modal-title').textContent = article.title;
-            document.getElementById('modal-source').textContent = `${article.source?.name || ''} | ${new Date(article.publishedAt).toLocaleString('ko-KR')}`;
-            
-            const imageEl = document.getElementById('modal-image');
-            if(article.image) {
-                imageEl.src = article.image;
-                imageEl.classList.remove('hidden');
-            } else {
-                imageEl.classList.add('hidden');
+            renderBuzzSection(buzzItems, containerId) {
+                const container = document.getElementById(containerId);
+                if (!buzzItems || buzzItems.length === 0) {
+                    container.innerHTML = `<div class="text-sm text-gray-500 p-4 text-center rounded-lg bg-white">실시간 트렌드가 없습니다.</div>`;
+                    return;
+                }
+                container.innerHTML = buzzItems.map(item => `
+                    <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="block bg-surface rounded-xl shadow-lg p-4 hover:bg-gray-50">
+                        <p class="font-bold truncate">${item.translatedName || item.name}</p>
+                        <p class="text-xs text-gray-500">${item.regionName}</p>
+                    </a>
+                `).join('');
             }
             
-            document.getElementById('modal-summary').innerHTML = (article.summary || '').split('\n').filter(line => line.trim()).map(line => 
-                `<div class="flex items-start modal-summary-item"><p>${line.replace(/^[•*-\s]*/, '')}</p></div>`
-            ).join('');
-            
-            document.getElementById('modal-detailed').innerHTML = article.description || '상세 내용이 없습니다.';
-            document.getElementById('modal-link').href = article.url || '#';
-
-            const modal = document.getElementById('news-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.add('opacity-100');
-                modal.querySelector('.modal-content').classList.remove('scale-95');
-            }, 10);
+            setRefreshButtonState(disabled) {
+                this.elements.refreshBtn.disabled = disabled;
+                const svg = this.elements.refreshBtn.querySelector('svg');
+                if (disabled) {
+                    svg.classList.add('animate-spin');
+                } else {
+                    svg.classList.remove('animate-spin');
+                }
+            }
         }
-
-        function closeModal() {
-            const modal = document.getElementById('news-modal');
-            modal.classList.remove('opacity-100');
-            modal.querySelector('.modal-content').classList.add('scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new EmarkNewsApp();
+            app.init();
+        });
     </script>
 </body>
 </html>
