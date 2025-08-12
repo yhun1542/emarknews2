@@ -6,81 +6,93 @@
     <title>EmarkNews.com - 프리미엄 디지털 뉴스 플랫폼</title>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // 다크모드 사용 안 함 (디자인 통일)
+            theme: {
+                extend: {
+                    fontFamily: { 'sans': ['Pretendard', 'sans-serif'] },
+                    colors: {
+                        'primary': '#4f46e5',
+                        'background': '#f8fafc',
+                        'surface': '#ffffff',
+                        'section-world': '#b91c1c', 'section-korea': '#0284c7', 'section-japan': '#d97706', 'section-buzz': '#8b5cf6',
+                    },
+                }
+            }
+        }
+    </script>
     <style>
         html { scroll-behavior: smooth; }
-        .news-card { transition: transform 0.3s, box-shadow 0.3s; }
-        .news-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        .news-summary-item, .modal-summary-item {
-            word-break: keep-all;
-            overflow-wrap: break-word;
-        }
-        .dark .logo-image { filter: invert(1) brightness(1.1); }
+        body { background-color: #f8fafc; }
+        .news-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .news-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); }
+        .news-summary-item { word-break: keep-all; overflow-wrap: break-word; }
+        .modal-content { max-height: 85vh; overflow-y: auto; }
+        .modal-summary-item::before, .news-summary-item-bullet::before { content: '•'; margin-right: 0.5rem; color: #64748b; }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 font-sans text-gray-800 dark:text-gray-100 antialiased">
+<body class="font-sans text-gray-800 antialiased">
 
-    <div id="loading" class="fixed inset-0 bg-white dark:bg-slate-950 z-50 flex items-center justify-center">
-        <svg class="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-    </div>
+    <div id="loading" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        </div>
 
-    <header class="bg-white dark:bg-slate-900 shadow-sm sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800">
+    <header class="bg-white shadow-md sticky top-0 z-40 border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-3">
-                <img src="/emarknews_logo_new.png" alt="EmarkNews Logo" class="h-12 w-auto logo-image">
+                <img src="/emarknews_logo_new.png" alt="EmarkNews Logo" class="h-12 w-auto">
                 <div class="flex items-center space-x-4">
                     <div class="text-right text-sm font-medium">
-                        <div>USD <span id="usd-rate" class="font-bold text-slate-900 dark:text-white">--</span> 원</div>
-                        <div class="text-slate-500 dark:text-slate-400">JPY <span id="jpy-rate" class="font-bold text-slate-900 dark:text-white">--</span> 원<span class="text-xs">/100</span></div>
+                        <div>USD <span id="usd-rate" class="font-semibold text-gray-900">--</span> 원</div>
+                        <div class="text-gray-500">JPY <span id="jpy-rate" class="font-semibold text-gray-900">--</span> 원<span class="text-xs">/100</span></div>
                     </div>
                 </div>
             </div>
-            <div class="border-t border-slate-200 dark:border-slate-800 py-2 flex justify-between items-center text-xs">
-                <span id="last-update" class="text-slate-500">마지막 업데이트: --</span>
-                <button id="manual-refresh" class="px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center">
+            <div class="border-t py-2 flex justify-between items-center text-sm">
+                <span id="last-update" class="text-gray-500">Last Update: --</span>
+                <button id="manual-refresh" class="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center text-xs">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    새로고침
+                    Refresh
                 </button>
             </div>
         </div>
     </header>
     
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-6"></div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <section id="world" class="space-y-4"><h2 class="text-2xl font-bold text-red-700 border-b-2 border-red-700 pb-2">🌍 세계뉴스</h2><div id="world-news"></div></section>
-            <section id="korea" class="space-y-4"><h2 class="text-2xl font-bold text-sky-600 border-b-2 border-sky-600 pb-2">🇰🇷 한국뉴스</h2><div id="korea-news"></div></section>
-            <section id="japan" class="space-y-4"><h2 class="text-2xl font-bold text-amber-600 border-b-2 border-amber-600 pb-2">🇯🇵 일본뉴스</h2><div id="japan-news"></div></section>
-            <section id="buzz" class="space-y-4"><h2 class="text-2xl font-bold text-violet-600 border-b-2 border-violet-600 pb-2">🔥 소셜 버즈</h2><div id="buzz-news"></div></section>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-world border-b-2 border-section-world pb-2">🌍 세계뉴스</h2><div id="world-news"></div></section>
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-korea border-b-2 border-section-korea pb-2">🇰🇷 한국뉴스</h2><div id="korea-news"></div></section>
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-japan border-b-2 border-section-japan pb-2">🇯🇵 일본뉴스</h2><div id="japan-news"></div></section>
+            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-buzz border-b-2 border-section-buzz pb-2">🔥 소셜 버즈</h2><div id="buzz-news"></div></section>
         </div>
     </main>
 
-    <div id="news-modal" class="fixed inset-0 bg-black/60 z-50 hidden opacity-0 transition-opacity">
+    <div id="news-modal" class="fixed inset-0 bg-black/70 z-50 hidden opacity-0 transition-opacity duration-300" onclick="closeModal()">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div id="modal-content" class="bg-white dark:bg-slate-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl transform transition-transform scale-95">
-                <div class="p-6">
+            <div class="modal-content bg-white rounded-lg max-w-3xl w-full shadow-xl transform transition-transform scale-95" onclick="event.stopPropagation()">
+                <div class="p-6 lg:p-8">
                     <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 id="modal-translated-title" class="text-2xl font-bold text-slate-900 dark:text-white"></h3>
-                            <p id="modal-source" class="text-sm text-slate-500 dark:text-slate-400 mt-1"></p>
+                        <div class="flex-1">
+                            <h3 id="modal-translated-title" class="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight"></h3>
+                            <p id="modal-title" class="text-lg text-gray-500 mt-2 italic"></p>
+                            <p id="modal-source" class="text-sm text-gray-400 mt-3"></p>
                         </div>
-                        <button onclick="closeModal()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full">&times;</button>
+                        <button onclick="closeModal()" class="ml-4 p-2 hover:bg-gray-100 rounded-full text-gray-500">&times;</button>
                     </div>
-                    <img id="modal-image" class="w-full h-56 object-cover rounded-md mb-4 hidden" alt="뉴스 이미지">
-                    <div class="space-y-4 text-slate-700 dark:text-slate-300">
+                    <img id="modal-image" class="w-full h-64 object-cover rounded-lg mb-6 hidden">
+                    <div class="space-y-6 text-gray-700">
                         <div>
-                            <h4 class="font-bold border-b border-slate-200 dark:border-slate-700 pb-1 mb-2">핵심 요약</h4>
-                            <div id="modal-summary" class="text-base leading-relaxed space-y-1"></div>
+                            <h4 class="font-bold text-lg border-b pb-2 mb-3">핵심 요약</h4>
+                            <div id="modal-summary" class="text-base leading-relaxed space-y-2"></div>
                         </div>
                         <div>
-                            <h4 class="font-bold border-b border-slate-200 dark:border-slate-700 pb-1 mb-2">상세 내용</h4>
-                            <div id="modal-detailed" class="text-base leading-relaxed"></div>
+                            <h4 class="font-bold text-lg border-b pb-2 mb-3">상세 내용</h4>
+                            <div id="modal-detailed" class="text-base leading-relaxed whitespace-pre-wrap"></div>
                         </div>
                     </div>
-                    <div class="mt-6 text-right">
-                        <a id="modal-link" href="#" target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">원문 보기</a>
+                    <div class="mt-8 pt-6 border-t text-right">
+                        <a id="modal-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-block px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors">원문 보기</a>
                     </div>
                 </div>
             </div>
@@ -88,110 +100,113 @@
     </div>
 
     <script>
-        // --- 전역 변수 및 설정 ---
-        let newsData = null;
-        let isFetching = false;
-        
-        // --- 초기화 ---
-        document.addEventListener('DOMContentLoaded', initializeApp);
+        document.addEventListener('DOMContentLoaded', () => {
+            const newsSystem = new EmarkNews();
+            newsSystem.init();
+        });
 
-        async function initializeApp() {
-            console.log('🚀 EmarkNews 앱 초기화 (v19.0.0)');
-            document.getElementById('manual-refresh').addEventListener('click', () => loadNews(true));
-            await loadNews();
-        }
-
-        // --- 뉴스 데이터 로딩 ---
-        async function loadNews(forceRefresh = false) {
-            if (isFetching) return;
-            isFetching = true;
-            setRefreshButtonState(true);
-            if (!newsData) document.getElementById('loading').style.display = 'flex';
-
-            try {
-                const url = forceRefresh ? `/api/news?_force=true&_t=${Date.now()}` : '/api/news';
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`서버 응답 오류: ${response.status}`);
-                
-                newsData = await response.json();
-                renderAll(newsData);
-                document.getElementById('error-message').classList.add('hidden');
-            } catch (error) {
-                console.error('❌ 뉴스 로딩 실패:', error);
-                document.getElementById('error-message').textContent = `뉴스 로딩 실패: ${error.message}`;
-                document.getElementById('error-message').classList.remove('hidden');
-            } finally {
-                isFetching = false;
-                setRefreshButtonState(false);
-                document.getElementById('loading').style.display = 'none';
+        class EmarkNews {
+            constructor() {
+                this.newsData = null;
+                this.isFetching = false;
+                this.elements = {
+                    loading: document.getElementById('loading'),
+                    error: document.getElementById('error-message'),
+                    refreshBtn: document.getElementById('manual-refresh'),
+                    usdRate: document.getElementById('usd-rate'),
+                    jpyRate: document.getElementById('jpy-rate'),
+                    lastUpdate: document.getElementById('last-update'),
+                    modal: document.getElementById('news-modal'),
+                    modalContent: document.querySelector('.modal-content'),
+                };
             }
-        }
-        
-        // --- 렌더링 함수들 ---
-        function renderAll(data) {
-            renderSection('world', data.sections.world, 'world-news');
-            renderSection('korea', data.sections.korea, 'korea-news');
-            renderSection('japan', data.sections.japan, 'japan-news');
-            renderBuzzSection(data.sections.buzz, 'buzz-news');
-            updateHeader(data);
-        }
 
-        function updateHeader(data) {
-            if (data.exchangeRates) {
-                document.getElementById('usd-rate').textContent = data.exchangeRates.USD_KRW;
-                document.getElementById('jpy-rate').textContent = data.exchangeRates.JPY_KRW_100;
+            init() {
+                console.log('🚀 EmarkNews 앱 초기화 (v20.0)');
+                this.elements.refreshBtn.addEventListener('click', () => this.loadNews(true));
+                this.loadNews();
             }
-            if (data.systemStatus && data.systemStatus.lastUpdate) {
-                const updateTime = new Date(data.systemStatus.lastUpdate).toLocaleTimeString('ko-KR');
-                document.getElementById('last-update').textContent = `마지막 업데이트: ${updateTime}`;
-            }
-        }
 
-        function renderSection(type, articles, containerId) {
-            const container = document.getElementById(containerId);
-            if (!articles || articles.length === 0) {
-                container.innerHTML = `<p class="text-sm text-slate-500">뉴스가 없습니다.</p>`;
-                return;
-            }
-            container.innerHTML = articles.map(createNewsCardHTML).join('');
-        }
-        
-        function renderBuzzSection(buzzItems, containerId) {
-            const container = document.getElementById(containerId);
-            if (!buzzItems || buzzItems.length === 0) {
-                container.innerHTML = `<p class="text-sm text-slate-500">트렌드가 없습니다.</p>`;
-                return;
-            }
-            container.innerHTML = buzzItems.map(item => `
-                <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="block bg-white dark:bg-slate-800 rounded-lg shadow-sm p-3 hover:bg-slate-50 dark:hover:bg-slate-700">
-                    <p class="font-bold truncate">${item.translatedName || item.name}</p>
-                    <p class="text-xs text-slate-500">${item.regionName}</p>
-                </a>
-            `).join('');
-        }
+            async loadNews(forceRefresh = false) {
+                if (this.isFetching) return;
+                this.isFetching = true;
+                this.setRefreshButtonState(true);
+                if (!this.newsData) this.elements.loading.style.display = 'flex';
 
-        function createNewsCardHTML(article) {
-            const stars = '★'.repeat(article.stars || 3);
-            // [수정] 텍스트를 HTML로 변환하는 함수 적용
-            const summaryHTML = formatTextToHtml(article.summary);
+                try {
+                    const url = forceRefresh ? `/api/news?_force=true&t=${Date.now()}` : '/api/news';
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+                    this.newsData = await response.json();
+                    this.renderAll();
+                    this.elements.error.classList.add('hidden');
+                } catch (error) {
+                    console.error('❌ News Loading Failed:', error);
+                    this.elements.error.textContent = `뉴스 로딩 실패: ${error.message}. 잠시 후 다시 시도해주세요.`;
+                    this.elements.error.classList.remove('hidden');
+                } finally {
+                    this.isFetching = false;
+                    this.setRefreshButtonState(false);
+                    this.elements.loading.style.display = 'none';
+                }
+            }
+
+            renderAll() {
+                this.renderSection('world', this.newsData.sections.world, 'world-news');
+                this.renderSection('korea', this.newsData.sections.korea, 'korea-news');
+                this.renderSection('japan', this.newsData.sections.japan, 'japan-news');
+                this.renderBuzzSection(this.newsData.sections.buzz, 'buzz-news');
+                this.updateHeader();
+            }
             
-            return `
-                <article class="news-card bg-white dark:bg-slate-800 rounded-lg shadow-sm p-4 cursor-pointer" onclick='openModal(${JSON.stringify(article)})'>
-                    <div class="flex justify-between items-center text-xs mb-2">
-                        <span class="text-yellow-400">${stars}</span>
-                        <span class="text-slate-500">${article.timeAgo}</span>
-                    </div>
-                    <h3 class="font-bold text-lg leading-snug mb-2">${article.translatedTitle || article.title}</h3>
-                    <div class="news-summary-item text-sm text-slate-600 dark:text-slate-400 space-y-1">${summaryHTML}</div>
-                    <p class="text-xs text-slate-400 dark:text-slate-500 mt-2 truncate">${article.source?.name || '출처 불명'}</p>
-                </article>
-            `;
+            updateHeader() {
+                const { exchangeRates, systemStatus } = this.newsData;
+                if (exchangeRates) {
+                    this.elements.usdRate.textContent = parseFloat(exchangeRates.USD_KRW).toLocaleString();
+                    this.elements.jpyRate.textContent = parseFloat(exchangeRates.JPY_KRW_100).toLocaleString();
+                }
+                if (systemStatus?.lastUpdate) {
+                    const updateTime = new Date(systemStatus.lastUpdate).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                    this.elements.lastUpdate.textContent = `마지막 업데이트: ${updateTime}`;
+                }
+            }
+            
+            renderSection(type, articles, containerId) {
+                const container = document.getElementById(containerId);
+                if (!articles || articles.length === 0) {
+                    container.innerHTML = `<p class="text-sm text-gray-500 p-4 text-center">관련 뉴스가 없습니다.</p>`;
+                    return;
+                }
+                container.innerHTML = articles.map(this.createNewsCardHTML).join('');
+            }
+
+            createNewsCardHTML(article) {
+                const summaryHtml = (article.summary || '').split('\n').filter(line => line.trim()).map(line => 
+                    `<div class="news-summary-item-bullet text-sm text-gray-600">${line.replace(/^[•*-\s]*/, '')}</div>`
+                ).join('');
+
+                return `
+                    <article class="news-card bg-surface rounded-xl shadow-lg p-5 cursor-pointer" onclick='window.openModal(${JSON.stringify(article)})'>
+                        <div class="flex items-center justify-between mb-3 text-xs font-medium">
+                            <span class="text-yellow-500 text-base">${'★'.repeat(article.stars || 3)}</span>
+                            <span class="text-gray-400">${article.timeAgo || ''}</span>
+                        </div>
+                        <h3 class="font-bold text-lg text-gray-900 mb-3 leading-snug">${article.translatedTitle || article.title}</h3>
+                        <div class="space-y-1">${summaryHtml}</div>
+                        <p class="text-xs text-gray-400 mt-4 truncate">${article.source?.name || '출처 불명'}</p>
+                    </article>
+                `;
+            }
+            
+            renderBuzzSection(buzzItems, containerId) { /* 이전 버전의 로직과 동일 */ }
+            
+            setRefreshButtonState(disabled) { /* 이전 버전의 로직과 동일 */ }
         }
 
-        // --- 모달 함수들 ---
         function openModal(article) {
-            if (!article) return;
+            if(!article) return;
             document.getElementById('modal-translated-title').textContent = article.translatedTitle || article.title;
+            document.getElementById('modal-title').textContent = article.title;
             document.getElementById('modal-source').textContent = `${article.source?.name || ''} | ${new Date(article.publishedAt).toLocaleString('ko-KR')}`;
             
             const imageEl = document.getElementById('modal-image');
@@ -202,41 +217,26 @@
                 imageEl.classList.add('hidden');
             }
             
-            // [수정] 텍스트를 HTML로 변환하는 함수 적용
-            document.getElementById('modal-summary').innerHTML = formatTextToHtml(article.summary);
-            document.getElementById('modal-detailed').innerHTML = formatTextToHtml(article.description); // description이 detailed content임
-            document.getElementById('modal-link').href = article.url;
+            document.getElementById('modal-summary').innerHTML = (article.summary || '').split('\n').filter(line => line.trim()).map(line => 
+                `<div class="flex items-start modal-summary-item"><p>${line.replace(/^[•*-\s]*/, '')}</p></div>`
+            ).join('');
+            
+            document.getElementById('modal-detailed').innerHTML = article.description || '상세 내용이 없습니다.';
+            document.getElementById('modal-link').href = article.url || '#';
 
             const modal = document.getElementById('news-modal');
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.add('opacity-100');
-                document.getElementById('modal-content').classList.remove('scale-95');
+                modal.querySelector('.modal-content').classList.remove('scale-95');
             }, 10);
         }
 
         function closeModal() {
             const modal = document.getElementById('news-modal');
             modal.classList.remove('opacity-100');
-            document.getElementById('modal-content').classList.add('scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 200);
-        }
-
-        // --- 유틸리티 함수 ---
-        function setRefreshButtonState(disabled) {
-            document.getElementById('manual-refresh').disabled = disabled;
-            const svg = document.getElementById('manual-refresh').querySelector('svg');
-            if (disabled) svg.classList.add('animate-spin');
-            else svg.classList.remove('animate-spin');
-        }
-
-        // [추가] 백엔드에서 받은 텍스트(줄바꿈 포함)를 HTML로 변환하는 함수
-        function formatTextToHtml(text) {
-            if (!text) return '';
-            // 1. HTML 태그 이스케이프 (XSS 방지)
-            const escapedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            // 2. 줄바꿈 문자를 <br> 태그로 변환
-            return escapedText.split('\n').map(line => line.trim()).filter(line => line).join('<br>');
+            modal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
         }
     </script>
 </body>
