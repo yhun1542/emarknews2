@@ -34,7 +34,10 @@ class EmarkNewsSystem {
             xApiSecret: process.env.X_API_SECRET || '8k4CpV8OJJO3J3lVgTh9N5VS92BatIWx4z5pzdOufUBTOxZETz'
         };
 
-        // X (Twitter) API 설정
+        // --- [수정] X (Twitter) API 정책 안내 ---
+        // X(Twitter) API는 2023년 정책 변경으로 인해 트렌드 데이터를 가져오려면
+        // 유료 플랜(예: Basic 등급 이상) 구독이 필요합니다.
+        // 무료 등급에서는 이 기능이 작동하지 않으므로 '소셜 버즈' 섹션이 비어있게 됩니다.
         this.xBearerToken = null;
         this.xTokenExpiry = 0;
         this.xTrendLocations = {
@@ -340,23 +343,23 @@ class EmarkNewsSystem {
         return processedArticles;
     }
 
-    // 일본 뉴스 수집 (일본어 원문 강화)
+    // [수정] 일본 뉴스 수집 로직 강화
     async fetchEnhancedJapanNews(forceRefresh = false) {
         console.log('🇯🇵 일본뉴스 수집 중...');
         const sources = [
             // 1. 일본 관련 주요 영문 뉴스
-            { endpoint: 'everything', params: { q: 'Japan OR Tokyo OR Kishida OR Nikkei OR "Bank of Japan"', language: 'en', pageSize: 30, sortBy: 'publishedAt', sources: 'bbc-news,reuters,bloomberg,associated-press,wall-street-journal' } },
-            // 2. 일본어 헤드라인 (일본어 원문)
-            { endpoint: 'top-headlines', params: { country: 'jp', language: 'ja', pageSize: 25 } },
-            // 3. 일본어로 주요 키워드 검색
-            { endpoint: 'everything', params: { q: '政治 OR 経済 OR 技術', language: 'ja', pageSize: 15, sortBy: 'publishedAt' } }
+            { endpoint: 'everything', params: { q: 'Japan OR Tokyo OR Kishida OR Nikkei OR "Bank of Japan"', language: 'en', pageSize: 25, sortBy: 'publishedAt', sources: 'reuters,bloomberg,associated-press,wall-street-journal' } },
+            // 2. 일본 주요 언론사 도메인에서 직접 일본어 뉴스 수집 (가장 중요)
+            { endpoint: 'everything', params: { domains: 'asahi.com,mainichi.jp,yomiuri.co.jp,nikkei.com,sankei.com,kyodonews.net,jiji.com,nhk.or.jp', language: 'ja', pageSize: 40, sortBy: 'publishedAt' } },
+            // 3. 일본어 키워드 검색 (보조)
+            { endpoint: 'everything', params: { q: '政治 OR 経済 OR 技術', language: 'ja', pageSize: 20, sortBy: 'publishedAt' } }
         ];
 
         const apiPromises = sources.map(source => {
             if (!this.checkRateLimit('newsApi')) return Promise.resolve([]);
             return this.callNewsAPI(source.endpoint, source.params)
                 .then(articles => articles.filter(article => {
-                    const content = (article.title + ' ' + article.description).toLowerCase();
+                    const content = (article.title + ' ' + (article.description || '')).toLowerCase();
                     return !this.containsKeywords(content, this.sportsKeywords);
                 }))
                 .catch(error => {
@@ -384,6 +387,7 @@ class EmarkNewsSystem {
         console.log(`✅ 일본뉴스 처리 완료: ${processedArticles.length}개`);
         return processedArticles;
     }
+
 
     // 기사 처리 및 번역 (병렬)
     async processArticlesWithEnhancedTranslation(articles, section) {
@@ -505,13 +509,17 @@ class EmarkNewsSystem {
         return this.basicEnhancedTranslateAndSummarize(article);
     }
 
-    // OpenAI JSON 번역 호출
+    // [수정] OpenAI JSON 번역 호출 (프롬프트 강화 및 토큰 수 증가)
     async callOpenAIJsonTranslation(content, language = 'en') {
         const startTime = Date.now();
         const sourceLanguage = language === 'ja' ? '일본어' : '영어';
 
-        // 시스템 프롬프트: JSON 스키마 정의 및 요구사항 명시
-        const systemPrompt = `당신은 전문 뉴스 번역가입니다. ${sourceLanguage} 뉴스를 자연스러운 한국어로 번역하고 결과를 JSON 형식으로 반환해야 합니다. 다음 스키마를 엄격히 준수하세요:
+        // 시스템 프롬프트: JSON 스키마 정의 및 요구사항 명시 (강화)
+        const systemPrompt = `당신은 전문 뉴스 번역가입니다. ${sourceLanguage} 뉴스를 자연스러운 한국어로 번역하고 결과를 JSON 형식으로 반환해야 합니다. 다음 규칙을 반드시, 엄격하게 준수하세요:
+1.  제공된 JSON 스키마를 완벽하게 따라야 합니다.
+2.  모든 필드는 완전한 문장으로 끝나야 합니다. 절대 중간에 내용을 자르거나 말줄임표(...)를 사용해서는 안 됩니다.
+3.  'fullContent' 필드는 원문 전체를 **단어 하나도 빠짐없이** 완벽하게 번역해야 합니다. 원문의 길이가 길더라도 절대 생략하거나 요약해서는 안됩니다.
+
 {
   "translatedTitle": "번역된 제목 (명확하고 완전한 문장)",
   "summary": [
@@ -519,10 +527,9 @@ class EmarkNewsSystem {
     "두 번째 핵심 요약",
     "세 번째 핵심 요약"
   ],
-  "detailed": "상세 내용 (2-3 문단으로 구성된 핵심 내용 번역, 문단 사이는 줄바꿈(\\n\\n)으로 구분. 들여쓰기나 불필요한 기호 사용 금지.)",
-  "fullContent": "전문 번역 (원문 전체를 빠짐없이 번역, 문단 사이는 줄바꿈(\\n\\n)으로 구분. 누락 금지.)"
-}
-모든 내용은 간결하고 명확한 뉴스 보도 문체여야 하며, 원문의 의미를 정확하게 전달해야 합니다. 말줄임표(...)는 절대 사용하지 마세요.`;
+  "detailed": "상세 내용 (원문의 핵심 내용을 2-3 문단으로 번역. 절대 내용을 생략하거나 자르지 말 것. 문단 사이는 줄바꿈(\\n\\n)으로 구분.)",
+  "fullContent": "전문 번역 (원문 전체를 **절대 생략 없이** 모두 번역. 문단 사이는 줄바꿈(\\n\\n)으로 구분. 가장 중요한 규칙임.)"
+}`;
 
         try {
             const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -530,9 +537,9 @@ class EmarkNewsSystem {
                 response_format: { type: "json_object" }, // JSON 모드 활성화
                 messages: [
                     { role: 'system', content: systemPrompt },
-                    { role: 'user', content: `다음 뉴스를 번역해주세요:\n\n${content}` }
+                    { role: 'user', content: `다음 뉴스를 위의 규칙에 따라 번역해주세요:\n\n${content}` }
                 ],
-                max_tokens: 2000,
+                max_tokens: 4000, // [수정] 토큰 수 2배 증가
                 temperature: 0.2 // 정확성 향상
             }, {
                 headers: { 'Authorization': `Bearer ${this.apis.openAi}`, 'Content-Type': 'application/json' },
@@ -555,6 +562,7 @@ class EmarkNewsSystem {
             throw error;
         }
     }
+
 
     // JSON 번역 결과 포맷팅 (들여쓰기 추가)
     formatJsonContent(content) {
@@ -631,7 +639,7 @@ class EmarkNewsSystem {
         }
 
         if (!this.apis.xApiKey || !this.apis.xApiSecret) {
-            console.warn('⚠️ X API 키가 설정되지 않았습니다.');
+            console.warn('⚠️ X API 키가 설정되지 않았습니다. 소셜 버즈 수집을 건너뜁니다.');
             return null;
         }
 
@@ -662,7 +670,7 @@ class EmarkNewsSystem {
             const errorMessage = error.response ? `${error.response.status}: ${error.message}` : error.message;
             console.error('❌ X API 인증 실패:', errorMessage);
             if (error.response && error.response.status === 403) {
-                console.error('⚠️ X API 권한 오류(403): API 키 권한 및 유료 플랜 여부를 확인하세요.');
+                console.error('⚠️ X API 권한 오류(403): API 키 권한 및 유료 플랜 여부를 확인하세요. Basic 등급 이상이 필요할 수 있습니다.');
             }
             this.updateApiMetrics('xApi', false, 0, 'Authentication failed');
             return null;
@@ -673,7 +681,10 @@ class EmarkNewsSystem {
     async fetchSocialBuzz() {
         console.log('🔥 소셜 버즈(X 트렌드) 수집 중...');
         const token = await this.getXBearerToken();
-        if (!token) return [];
+        if (!token) {
+             console.warn('⚠️ X API 토큰이 없어 소셜 버즈 수집을 중단합니다.');
+             return [];
+        }
 
         // 3개 지역 트렌드 병렬 수집
         const promises = Object.entries(this.xTrendLocations).map(([region, data]) => {

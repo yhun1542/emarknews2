@@ -6,7 +6,6 @@
     <meta name="referrer" content="no-referrer">
     <title>EmarkNews.com - 프리미엄 디지털 뉴스 플랫폼</title>
 
-    <!-- PWA 및 폰트 설정 -->
     <meta name="theme-color" content="#1e293b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,7 +13,6 @@
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS 설정 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -81,6 +79,9 @@
             align-items: flex-start; /* 상단 정렬로 변경 */
             margin-bottom: 0.5rem;
             line-height: 1.6;
+            /* [수정] 한국어 줄바꿈 문제 해결 */
+            word-break: keep-all;
+            overflow-wrap: break-word;
         }
         .news-summary-item::before {
             content: '•';
@@ -170,7 +171,6 @@
 </head>
 <body class="bg-background-light dark:bg-background-dark font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300 antialiased">
 
-    <!-- 로딩 스피너 -->
     <div id="loading" class="fixed inset-0 bg-surface-light dark:bg-background-dark z-50 flex items-center justify-center transition-opacity duration-500">
         <div class="text-center">
             <svg class="animate-spin h-12 w-12 text-primary mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -181,18 +181,14 @@
         </div>
     </div>
 
-    <!-- 헤더 -->
     <header class="bg-surface-light dark:bg-surface-dark shadow-soft sticky top-0 z-40 border-b border-gray-100 dark:border-gray-700/50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-3 lg:py-4">
                 
-                <!-- [개선] 이미지 로고 사용 -->
                 <div class="flex-shrink-0 flex items-center">
-                    <!-- 이미지 파일은 public 폴더 루트에 위치해야 합니다 -->
-                    <img src="/emarknews_logo_top.png" alt="EmarkNews.com Logo" class="h-10 lg:h-12 w-auto logo-image">
+                    <img src="/emarknews_logo_new.png" alt="EmarkNews.com Logo" class="h-12 lg:h-14 w-auto logo-image">
                 </div>
 
-                <!-- 환율 및 다크모드 토글 -->
                 <div class="flex items-center space-x-4 lg:space-x-6">
                     <div class="text-right text-sm lg:text-base font-medium">
                         <div class="text-gray-700 dark:text-gray-300">
@@ -211,15 +207,12 @@
                 </div>
             </div>
 
-            <!-- 업데이트 정보 및 새로고침 버튼 -->
             <div class="border-t border-gray-100 dark:border-gray-700/50 py-2">
                 <div class="flex justify-between items-center text-xs lg:text-sm">
                     <div class="flex items-center space-x-4 text-gray-600 dark:text-gray-400">
                         <span id="last-update">마지막 업데이트: --:--</span>
-                        <!-- [개선] 다음 업데이트 타이머 -->
                         <span id="next-update" class="hidden sm:inline">다음 업데이트까지: --분 --초</span>
                     </div>
-                    <!-- [개선] 새로고침 버튼 활성화/비활성화 상태 추가 -->
                     <button id="manual-refresh" class="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium flex items-center disabled:opacity-50" disabled>
                         <svg class="w-4 h-4 mr-2 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         새로고침
@@ -229,19 +222,16 @@
         </div>
     </header>
 
-    <!-- 트렌드 키워드 바 -->
     <div class="bg-gray-100 dark:bg-slate-800/50 py-3 border-b border-gray-200 dark:border-slate-700/50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center space-x-4 overflow-x-auto whitespace-nowrap">
                 <span class="font-bold text-primary dark:text-primary-dark text-sm lg:text-base">📈 뉴스 트렌드</span>
                 <div id="trending-keywords" class="flex space-x-3">
-                    <!-- 트렌드 키워드 삽입 위치 -->
-                </div>
+                    </div>
             </div>
         </div>
     </div>
 
-    <!-- 네비게이션 -->
     <nav id="main-nav" class="bg-surface-light dark:bg-surface-dark sticky z-30 shadow-md lg:shadow-none">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-around lg:justify-center lg:space-x-10 border-b border-gray-200 dark:border-gray-700 lg:border-none">
@@ -261,7 +251,6 @@
         </div>
     </nav>
 
-    <!-- 메인 컨텐츠 -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div id="error-message" class="hidden bg-red-100 dark:bg-red-900/30 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6" role="alert">
              <div class="flex items-center">
@@ -272,25 +261,21 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
-            <!-- 세계뉴스 섹션 -->
             <section id="world" class="space-y-6">
                 <h2 class="text-2xl font-bold text-section-world border-b-2 border-section-world pb-2">🌍 세계뉴스</h2>
                 <div id="world-news" class="space-y-6"></div>
             </section>
 
-            <!-- 한국뉴스 섹션 -->
             <section id="korea" class="space-y-6">
                 <h2 class="text-2xl font-bold text-section-korea border-b-2 border-section-korea pb-2">🇰🇷 한국뉴스</h2>
                 <div id="korea-news" class="space-y-6"></div>
             </section>
 
-            <!-- 일본뉴스 섹션 -->
             <section id="japan" class="space-y-6">
                 <h2 class="text-2xl font-bold text-section-japan border-b-2 border-section-japan pb-2">🇯🇵 일본뉴스</h2>
                 <div id="japan-news" class="space-y-6"></div>
             </section>
 
-            <!-- 소셜 버즈 섹션 -->
             <section id="buzz" class="space-y-6">
                 <h2 class="text-2xl font-bold text-section-buzz border-b-2 border-section-buzz pb-2">🔥 소셜 버즈 (X 실시간)</h2>
                 <div id="buzz-news" class="space-y-4"></div>
@@ -298,12 +283,10 @@
         </div>
     </main>
 
-    <!-- 뉴스 모달 -->
     <div id="news-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden transition-opacity duration-300 opacity-0" aria-hidden="true">
         <div class="flex items-end lg:items-center justify-center min-h-screen p-0 lg:p-4">
             <div class="bg-surface-light dark:bg-surface-dark rounded-t-xl lg:rounded-lg max-w-4xl w-full modal-content shadow-xl transform transition-transform duration-300 translate-y-full lg:translate-y-0" role="dialog">
                 <div class="p-6 lg:p-8">
-                    <!-- 모달 헤더 (제목, 출처, 닫기 버튼) -->
                     <div class="flex justify-between items-start mb-6">
                         <div class="flex-1">
                             <div class="flex items-center flex-wrap gap-2 mb-4">
@@ -323,12 +306,10 @@
                         </button>
                     </div>
 
-                    <!-- 모달 이미지 -->
                     <div id="modal-image-container" class="mb-6 hidden">
                         <img id="modal-image" class="w-full h-56 lg:h-80 object-cover rounded-lg shadow-md" alt="뉴스 이미지" loading="lazy">
                     </div>
 
-                    <!-- 모달 탭 네비게이션 -->
                     <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
                         <nav class="flex space-x-6" aria-label="Tabs">
                             <button onclick="showTab('summary')" id="tab-summary" class="tab-button py-2 px-1 text-sm font-medium transition-colors">
@@ -343,7 +324,6 @@
                         </nav>
                     </div>
 
-                    <!-- 모달 탭 컨텐츠 -->
                     <div class="mb-8">
                         <div id="content-summary" class="tab-content content-summary text-gray-700 dark:text-gray-300">
                             <div id="modal-summary"></div>
@@ -356,7 +336,6 @@
                         </div>
                     </div>
 
-                    <!-- 원문 보기 버튼 -->
                     <div class="flex justify-end pt-5 border-t border-gray-200 dark:border-gray-700">
                         <a id="modal-link" href="#" target="_blank" rel="noopener noreferrer" class="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors shadow-md">
                             원문 보기
@@ -367,13 +346,10 @@
         </div>
     </div>
 
-    <!-- 푸터 -->
     <footer class="bg-gray-800 text-white py-8 mt-12 border-t border-gray-700">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <!-- [개선] 푸터 로고 추가 -->
             <div class="mb-6">
-                <!-- 푸터는 배경이 어두우므로 색상 반전 적용 -->
-                <img src="/emarknews_logo_bottom.png" alt="EmarkNews Mark" class="h-8 w-auto mx-auto" style="filter: invert(1) brightness(1.1);">
+                 <img src="/emarknews_logo_new.png" alt="EmarkNews Mark" class="h-10 w-auto mx-auto" style="filter: invert(1) brightness(1.1);">
             </div>
             <p class="text-sm text-gray-400 mb-2">
                 © 2025 EmarkNews.com. All rights reserved.
@@ -662,12 +638,10 @@
                         <div class="flex space-x-2">${marks}</div>
                     </div>
                     
-                    <!-- [개선] 제목 처리를 위한 data 속성 추가 -->
                     <h3 class="font-bold text-lg text-gray-900 dark:text-white mb-4 leading-snug hover:underline" data-title-content>
                         ${displayTitlePreview} 
                     </h3>
                     
-                    <!-- [개선] 수정된 클래스 적용 -->
                     <ul class="news-summary-list">${summaryContent}</ul>
                     
                     <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
