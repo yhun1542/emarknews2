@@ -76,7 +76,7 @@ class EmarkNewsSystem {
         const socialBuzz = results[4].status === 'fulfilled' ? results[4].value : (lastCache?.sections.buzz || []);
 
         return {
-            sections: { world: worldNews, korea: koreaNews, japan: japanNews, buzz: socialBuzz },
+            sections: { world: worldNews, korea: koreaNews, japan: japanNews, buzz: results[4].status === 'fulfilled' ? results[4].value : [] },
             exchangeRates,
             systemStatus: { version: '21.0', lastUpdate: this.lastUpdate }
         };
