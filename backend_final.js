@@ -11,9 +11,18 @@
 
 const express = require("express");
 const crypto = require("crypto");
+const path = require("path");
 const app = express();
 
 app.use(express.json());
+
+// 정적 파일 서빙 미들웨어 추가
+app.use(express.static('public'));
+
+// 루트 경로 라우팅 추가
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 /* =========================================
    환경 변수 (Railway에서 제공)
