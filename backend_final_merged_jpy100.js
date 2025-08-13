@@ -755,4 +755,4 @@ if (require.main === module) {
   app.listen(PORT, () => console.log(`[FINAL COMBINED] EmarkNews backend started on :${PORT} (ENV: ${NODE_ENV})`));
 }
 
-module.exports = { app };
+module.exports = { app };// Force redeploy Wed Aug 13 16:27:28 EDT 2025
