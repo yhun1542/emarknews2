@@ -1,281 +1,338 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EmarkNews.com - 프리미엄 디지털 뉴스 플랫폼</title>
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { 'sans': ['Pretendard', 'sans-serif'] },
-                    colors: {
-                        'primary': '#4f46e5', 'background': '#f8fafc', 'surface': '#ffffff',
-                        'section-world': '#b91c1c', 'section-korea': '#0284c7', 'section-japan': '#d97706', 'section-buzz': '#8b5cf6',
-                    },
-                }
-            }
-        }
-    </script>
-    <style>
-        html { scroll-behavior: smooth; }
-        body { background-color: #f8fafc; }
-        .news-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-        .news-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); }
-        .news-summary-item { word-break: keep-all; overflow-wrap: break-word; }
-        .modal-content { max-height: 85vh; overflow-y: auto; }
-        .modal-summary-item::before, .news-summary-item-bullet::before { content: '•'; margin-right: 0.5rem; color: #64748b; }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EmarkNews — Mobile First UI (FINAL up to STEP 5-1)</title>
+  <style>
+    :root{
+      --bg:#0b0c10; --card:#14161c; --ink:#e8ecf1; --muted:#9aa4b2; --accent:#3ea6ff;
+      --chip:#1b1f2a; --border:#232735; --ok:#2ecc71; --warn:#ffb020; --danger:#ff5c5c;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0; background:var(--bg); color:var(--ink);
+      font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    .wrap{max-width:960px; margin:0 auto; padding:12px 12px 72px}
+    .topbar{position:sticky; top:0; z-index:20; backdrop-filter: blur(10px);
+      background:rgba(11,12,16,.7); border-bottom:1px solid var(--border)}
+    .topbar__inner{max-width:960px; margin:0 auto; padding:10px 12px; display:flex; align-items:center; gap:10px}
+    .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink)}
+    .brand__logo{width:28px; height:28px; border-radius:6px; background:linear-gradient(135deg, var(--accent), #9f7aea)}
+    .brand__name{font-weight:700; letter-spacing:.1px}
+    .tabs{display:flex; gap:8px; padding:10px 12px; overflow:auto; border-bottom:1px solid var(--border)}
+    .tab{white-space:nowrap; padding:8px 12px; border-radius:999px; background:var(--chip); color:var(--muted); border:1px solid var(--border);
+      cursor:pointer; user-select:none; transition:transform .08s ease}
+    .tab:active{transform:scale(.98)} .tab.is-active{background:var(--accent); color:#081018; border-color:transparent; font-weight:700}
+    .toolbar{display:flex; gap:8px; padding:8px 12px; align-items:center; border-bottom:1px solid var(--border)}
+    .btn{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:#0e1117; color:var(--ink); cursor:pointer}
+    .btn:focus{outline:2px solid var(--accent); outline-offset:2px} .btn--ghost{background:transparent}
+    .spacer{flex:1} .meta{color:var(--muted); font-size:12px}
+    .grid{display:grid; gap:10px; grid-template-columns:1fr}
+    @media(min-width:640px){ .grid{grid-template-columns:1fr 1fr} }
+    @media(min-width:960px){ .grid{grid-template-columns:1fr 1fr 1fr} }
+    .card{background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; min-height:140px}
+    .card__body{padding:12px}
+    .card__kicker{font-size:11px; letter-spacing:.4px; color:var(--muted); text-transform:uppercase}
+    .card__title{margin:6px 0 4px; font-size:15px; line-height:1.45; font-weight:700; cursor:pointer}
+    .card__summary{color:var(--muted); font-size:13px}
+    .chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center}
+    .chip{font-size:11px; padding:4px 8px; border-radius:999px; background:#10131a; border:1px dashed var(--border); color:var(--muted)}
+    .rating{margin-left:auto; font-weight:700; color:var(--accent)}
+    .skeleton{position:relative; overflow:hidden; background:#0f1320}
+    .skeleton::after{content:""; position:absolute; inset:0; transform:translateX(-100%);
+      background:linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); animation:shimmer 1.2s infinite}
+    @keyframes shimmer{100%{transform:translateX(100%)}} .sk-title{height:16px; width:80%; border-radius:6px; margin:8px 0}
+    .sk-line{height:12px; width:100%; border-radius:6px; margin:6px 0} .sk-chip{height:20px; width:64px; border-radius:999px; display:inline-block; margin:6px 6px 0 0}
+    .modal{position:fixed; inset:0; display:none; align-items:flex-end; justify-content:center; z-index:50}
+    .modal.is-open{display:flex}
+    .modal__backdrop{position:absolute; inset:0; background:rgba(0,0,0,.55)}
+    .modal__panel{position:relative; width:100%; max-width:720px; background:var(--card);
+      border-top-left-radius:16px; border-top-right-radius:16px; border:1px solid var(--border);
+      padding:14px; box-shadow:0 -10px 40px rgba(0,0,0,.45)}
+    .modal__title{margin:0 0 6px; font-size:16px; font-weight:800}
+    .modal__meta{font-size:12px; color:var(--muted)} .modal__content{margin-top:10px; color:var(--ink)}
+    .modal__actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
+    .empty{padding:16px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:10px; background:#0e1117}
+    .error{color:var(--danger)}
+    .controls{display:flex; gap:8px; flex-wrap:wrap; padding:8px 12px; border-bottom:1px dashed var(--border)}
+    .ctrl{display:flex; gap:6px; align-items:center}
+    .ctrl input{width:80px; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background:#0e1117; color:var(--ink)}
+  </style>
 </head>
-<body class="font-sans text-gray-800 antialiased">
-
-    <div id="loading" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <svg class="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+<body>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="#"><div class="brand__logo" aria-hidden="true"></div><div class="brand__name">EmarkNews</div></a>
+      <div class="spacer"></div>
+      <span class="meta" id="generatedAt">—</span>
     </div>
-
-    <header class="bg-surface shadow-md sticky top-0 z-40 border-b">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-3">
-                <img src="/emarknews_logo_new.png" alt="EmarkNews Logo" class="h-12 w-auto">
-                <div class="flex items-center space-x-4">
-                    <div class="text-right text-sm font-medium">
-                        <div>USD <span id="usd-rate" class="font-semibold text-gray-900">--</span> 원</div>
-                        <div class="text-gray-500">JPY <span id="jpy-rate" class="font-semibold text-gray-900">--</span> 원<span class="text-xs">/100</span></div>
-                    </div>
-                </div>
-            </div>
-            <div class="border-t py-2 flex justify-between items-center text-sm">
-                <span id="last-update" class="text-gray-500">Last Update: --</span>
-                <button id="manual-refresh" class="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center text-xs">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    Refresh
-                </button>
-            </div>
-        </div>
-    </header>
-    
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert"></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-world border-b-2 border-section-world pb-2">🌍 세계뉴스</h2><div id="world-news" class="space-y-6"></div></section>
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-korea border-b-2 border-section-korea pb-2">🇰🇷 한국뉴스</h2><div id="korea-news" class="space-y-6"></div></section>
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-japan border-b-2 border-section-japan pb-2">🇯🇵 일본뉴스</h2><div id="japan-news" class="space-y-6"></div></section>
-            <section class="space-y-6"><h2 class="text-2xl font-bold text-section-buzz border-b-2 border-section-buzz pb-2">🔥 소셜 버즈</h2><div id="buzz-news" class="space-y-4"></div></section>
-        </div>
-    </main>
-
-    <div id="news-modal" class="fixed inset-0 bg-black/70 z-50 hidden opacity-0 transition-opacity duration-300" onclick="closeModal()">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="modal-content bg-white rounded-lg max-w-3xl w-full shadow-xl transform transition-transform scale-95" onclick="event.stopPropagation()">
-                <div class="p-6 lg:p-8">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1 pr-4">
-                            <h3 id="modal-translated-title" class="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight"></h3>
-                            <p id="modal-title" class="text-base text-gray-500 mt-2 italic"></p>
-                            <p id="modal-source" class="text-sm text-gray-400 mt-3"></p>
-                        </div>
-                        <button onclick="closeModal()" class="p-2 -mt-2 -mr-2 text-2xl text-gray-400 hover:text-gray-600">&times;</button>
-                    </div>
-                    <img id="modal-image" class="w-full h-64 object-cover rounded-lg mb-6 hidden">
-                    <div class="space-y-6 text-gray-700">
-                        <div id="summary-container" class="hidden">
-                            <h4 class="font-bold text-lg border-b pb-2 mb-3">핵심 요약</h4>
-                            <div id="modal-summary" class="text-base leading-relaxed space-y-2"></div>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-lg border-b pb-2 mb-3">상세 내용</h4>
-                            <div id="modal-detailed" class="text-base leading-relaxed whitespace-pre-wrap"></div>
-                        </div>
-                    </div>
-                    <div class="mt-8 pt-6 border-t text-right">
-                        <a id="modal-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-block px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors">원문 보기</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab is-active" data-section="world" role="tab" aria-selected="true">세계</button>
+      <button class="tab" data-section="kr" role="tab" aria-selected="false">국내</button>
+      <button class="tab" data-section="japan" role="tab" aria-selected="false">일본</button>
+      <button class="tab" data-section="x" role="tab" aria-selected="false">X</button>
+      <button class="tab" data-section="biz" role="tab" aria-selected="false">비즈</button>
+      <button class="tab" data-section="tech" role="tab" aria-selected="false">테크</button>
+    </nav>
+    <div class="toolbar">
+      <button class="btn btn--ghost" id="refreshBtn" title="새로고침">새로고침</button>
+      <div class="spacer"></div>
+      <span class="meta">캐시·번역 최적화 적용</span>
     </div>
+    <div class="controls" aria-label="/feed options">
+      <div class="ctrl">freshness(h): <input type="number" id="freshness" min="0" step="1" value="0" /></div>
+      <div class="ctrl">domain_cap: <input type="number" id="domainCap" min="0" step="1" value="0" /></div>
+      <div class="ctrl">lang: <input type="text" id="lang" placeholder="ko/en/jp…" /></div>
+    </div>
+  </header>
 
-    <script>
-        // 전역 스코프에 모달 함수 노출
-        let currentModalArticle = null;
-        window.openModal = (article) => {
-            currentModalArticle = article;
-            const modal = document.getElementById('news-modal');
-            
-            document.getElementById('modal-translated-title').textContent = article.translatedTitle || article.title;
-            document.getElementById('modal-title').textContent = article.title;
-            document.getElementById('modal-source').textContent = `${article.source?.name || '출처 불명'} | ${new Date(article.publishedAt).toLocaleString('ko-KR')}`;
-            
-            const imageEl = document.getElementById('modal-image');
-            if(article.image) {
-                imageEl.src = article.image;
-                imageEl.classList.remove('hidden');
-            } else {
-                imageEl.classList.add('hidden');
-            }
-            
-            const summaryContainer = document.getElementById('summary-container');
-            const summaryEl = document.getElementById('modal-summary');
-            if (article.summary) {
-                summaryEl.innerHTML = article.summary.split('\n').filter(line => line.trim()).map(line => 
-                    `<div class="flex items-start modal-summary-item"><p>${line.replace(/^[•*-\s]*/, '')}</p></div>`
-                ).join('');
-                summaryContainer.classList.remove('hidden');
-            } else {
-                summaryContainer.classList.add('hidden');
-            }
-            
-            document.getElementById('modal-detailed').innerHTML = (article.description || '상세 내용이 없습니다.').replace(/\n/g, '<br>');
-            document.getElementById('modal-link').href = article.url || '#';
+  <main class="wrap">
+    <section id="skeleton" aria-hidden="false">
+      <div class="grid" id="skeletonGrid"></div>
+    </section>
+    <section id="newsList" hidden>
+      <div class="grid" id="grid"></div>
+      <div id="empty" class="empty" hidden>표시할 항목이 없습니다.</div>
+      <div id="errorBox" class="empty error" hidden>데이터 로드 중 문제가 발생했습니다.</div>
+    </section>
+  </main>
 
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.add('opacity-100');
-                modal.querySelector('.modal-content').classList.remove('scale-95');
-            }, 10);
-            document.body.style.overflow = 'hidden';
-        };
+  <div class="modal" id="modal">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 class="modal__title" id="modalTitle">제목</h2>
+      <div class="modal__meta" id="modalMeta">—</div>
+      <div class="modal__content" id="modalContent">내용</div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" data-close="1">닫기</button>
+        <a class="btn" id="modalLink" href="#" target="_blank" rel="noopener">원문 열기</a>
+      </div>
+    </div>
+  </div>
 
-        window.closeModal = () => {
-            const modal = document.getElementById('news-modal');
-            modal.classList.remove('opacity-100');
-            modal.querySelector('.modal-content').classList.add('scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-            document.body.style.overflow = 'auto';
-        };
+  <script>
+    const $tabs = document.querySelectorAll(".tab");
+    const $grid = document.getElementById("grid");
+    const $generatedAt = document.getElementById("generatedAt");
+    const $skeleton = document.getElementById("skeleton");
+    const $newsList = document.getElementById("newsList");
+    const $empty = document.getElementById("empty");
+    const $errorBox = document.getElementById("errorBox");
+    const $refreshBtn = document.getElementById("refreshBtn");
+    const $modal = document.getElementById("modal");
+    const $modalTitle = document.getElementById("modalTitle");
+    const $modalMeta = document.getElementById("modalMeta");
+    const $modalContent = document.getElementById("modalContent");
+    const $modalLink = document.getElementById("modalLink");
+    const $skeletonGrid = document.getElementById("skeletonGrid");
 
-        // 앱 클래스
-        class EmarkNewsApp {
-            constructor() {
-                this.newsData = null;
-                this.isFetching = false;
-                this.elements = {
-                    loading: document.getElementById('loading'),
-                    error: document.getElementById('error-message'),
-                    refreshBtn: document.getElementById('manual-refresh'),
-                    usdRate: document.getElementById('usd-rate'),
-                    jpyRate: document.getElementById('jpy-rate'),
-                    lastUpdate: document.getElementById('last-update'),
-                };
-            }
+    const $freshness = document.getElementById("freshness");
+    const $domainCap = document.getElementById("domainCap");
+    const $lang = document.getElementById("lang");
 
-            init() {
-                console.log('🚀 EmarkNews 앱 초기화 (v20.1)');
-                this.elements.refreshBtn.addEventListener('click', () => this.loadNews(true));
-                this.loadNews();
-            }
+    const STATE = {
+      section: "world",
+      etagBySection: {},
+      lastPayload: {},
+      options: { freshness: 0, domain_cap: 0, lang: "" }
+    };
 
-            async loadNews(forceRefresh = false) {
-                if (this.isFetching) return;
-                this.isFetching = true;
-                this.setRefreshButtonState(true);
-                if (!this.newsData) this.elements.loading.style.display = 'flex';
+    function mountSkeleton(n=9){
+      $skeletonGrid.innerHTML = "";
+      const tpl = (extraChips=2)=>`
+        <article class="card">
+          <div class="card__body">
+            <div class="skeleton sk-title"></div>
+            <div class="skeleton sk-line" style="width:92%"></div>
+            <div class="skeleton sk-line" style="width:70%"></div>
+            <div class="chips">
+              ${Array.from({length:extraChips}).map(()=>`<span class="skeleton sk-chip"></span>`).join("")}
+            </div>
+          </div>
+        </article>`;
+      let html = "";
+      for(let i=0;i<n;i++) html += tpl(i%3+1);
+      $skeletonGrid.innerHTML = html;
+    }
 
-                try {
-                    const url = forceRefresh ? `/api/news?_force=true&t=${Date.now()}` : '/api/news';
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`서버 응답 오류: ${response.status}`);
-                    
-                    this.newsData = await response.json();
-                    this.renderAll();
-                    this.elements.error.classList.add('hidden');
-                } catch (error) {
-                    console.error('❌ 뉴스 로딩 실패:', error);
-                    this.elements.error.textContent = `뉴스 로딩 실패: ${error.message}. 잠시 후 다시 시도해주세요.`;
-                    this.elements.error.classList.remove('hidden');
-                } finally {
-                    this.isFetching = false;
-                    this.setRefreshButtonState(false);
-                    this.elements.loading.style.display = 'none';
-                }
-            }
+    function renderClusters(payload){
+      const { clusters = [], generatedAt } = payload || {};
+      $grid.innerHTML = "";
+      $empty.hidden = true;
+      $errorBox.hidden = true;
 
-            renderAll() {
-                this.renderSection(this.newsData.sections.world, 'world-news');
-                this.renderSection(this.newsData.sections.korea, 'korea-news');
-                this.renderSection(this.newsData.sections.japan, 'japan-news');
-                this.renderBuzzSection(this.newsData.sections.buzz, 'buzz-news');
-                this.updateHeader();
-            }
-            
-            updateHeader() {
-                const { exchangeRates, systemStatus } = this.newsData;
-                if (exchangeRates && exchangeRates.USD_KRW) {
-                    this.elements.usdRate.textContent = parseFloat(exchangeRates.USD_KRW).toLocaleString('ko-KR', {minimumFractionDigits: 2});
-                    this.elements.jpyRate.textContent = parseFloat(exchangeRates.JPY_KRW_100).toLocaleString('ko-KR', {minimumFractionDigits: 2});
-                }
-                if (systemStatus?.lastUpdate) {
-                    const updateTime = new Date(systemStatus.lastUpdate).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-                    this.elements.lastUpdate.textContent = `마지막 업데이트: ${updateTime}`;
-                }
-            }
-            
-            renderSection(articles, containerId) {
-                const container = document.getElementById(containerId);
-                if (!articles || articles.length === 0) {
-                    container.innerHTML = `<div class="text-sm text-gray-500 p-4 text-center rounded-lg bg-white">관련 뉴스가 없습니다.</div>`;
-                    return;
-                }
-                container.innerHTML = articles.map(this.createNewsCardHTML).join('');
-            }
+      if(!clusters.length){
+        $empty.hidden = false;
+        return;
+      }
 
-            createNewsCardHTML(article) {
-                const summaryHtml = (article.summary || '').split('\n').filter(line => line.trim()).map(line => 
-                    `<div class="flex items-start news-summary-item-bullet"><p class="text-sm text-gray-600">${line.replace(/^[•*-\s]*/, '')}</p></div>`
-                ).join('');
+      const frag = document.createDocumentFragment();
+      for(const c of clusters){
+        const art = c.articles?.[0] || {};
+        const kicker = (c.labels && c.labels.length) ? c.labels.join(" · ") : (c.keywords?.slice(0,2).join(" · ") || "update");
+        const title = art.title || "(제목 없음)";
+        const summary = art.summary || "";
+        const rating = (typeof c.rating === "number") ? c.rating.toFixed(2) : "—";
+        const link = art.url || "#";
 
-                // onclick 이벤트에 전달할 article 객체를 이스케이프 처리
-                const articleJsonString = JSON.stringify(article).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        const card = document.createElement("article");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card__body">
+            <div class="card__kicker">${escapeHTML(kicker)}</div>
+            <h3 class="card__title" data-link="${encodeURI(link)}">${escapeHTML(title)}</h3>
+            <div class="card__summary">${escapeHTML(summary)}</div>
+            <div class="chips">
+              ${(c.keywords||[]).slice(0,3).map(k=>`<span class="chip">${escapeHTML(k)}</span>`).join("")}
+              <span class="rating" title="별점 (0~5)">${rating}</span>
+            </div>
+          </div>
+        `;
 
-                return `
-                    <article class="news-card bg-surface rounded-xl shadow-lg p-5 cursor-pointer flex flex-col h-full" onclick='window.openModal(${articleJsonString})'>
-                        <div class="flex-grow">
-                            <div class="flex items-center justify-between mb-3 text-xs font-medium">
-                                <span class="text-yellow-500 text-base">${'★'.repeat(article.stars || 3)}</span>
-                                <span class="text-gray-400">${article.timeAgo || ''}</span>
-                            </div>
-                            <h3 class="font-bold text-lg text-gray-900 mb-3 leading-snug">${article.translatedTitle || article.title}</h3>
-                            <div class="space-y-1">${summaryHtml}</div>
-                        </div>
-                        <p class="text-xs text-gray-400 mt-4 pt-4 border-t truncate flex-shrink-0">${article.source?.name || '출처 불명'}</p>
-                    </article>
-                `;
-            }
-            
-            renderBuzzSection(buzzItems, containerId) {
-                const container = document.getElementById(containerId);
-                if (!buzzItems || buzzItems.length === 0) {
-                    container.innerHTML = `<div class="text-sm text-gray-500 p-4 text-center rounded-lg bg-white">실시간 트렌드가 없습니다.</div>`;
-                    return;
-                }
-                container.innerHTML = buzzItems.map(item => `
-                    <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="block bg-surface rounded-xl shadow-lg p-4 hover:bg-gray-50">
-                        <p class="font-bold truncate">${item.translatedName || item.name}</p>
-                        <p class="text-xs text-gray-500">${item.regionName}</p>
-                    </a>
-                `).join('');
-            }
-            
-            setRefreshButtonState(disabled) {
-                this.elements.refreshBtn.disabled = disabled;
-                const svg = this.elements.refreshBtn.querySelector('svg');
-                if (disabled) {
-                    svg.classList.add('animate-spin');
-                } else {
-                    svg.classList.remove('animate-spin');
-                }
-            }
-        }
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            const app = new EmarkNewsApp();
-            app.init();
+        card.querySelector(".card__title").addEventListener("click", () => {
+          openModal({
+            title,
+            meta: [
+              `레이블: ${(c.labels||[]).join(", ") || "—"}`,
+              `별점: ${rating}`,
+              `클러스터 크기: ${c.size || c.articles?.length || 1}`
+            ].join(" · "),
+            content: summary || "요약이 없습니다.",
+            link
+          });
         });
-    </script>
+
+        frag.appendChild(card);
+      }
+      $grid.appendChild(frag);
+      $generatedAt.textContent = new Date(generatedAt || Date.now()).toLocaleString();
+    }
+
+    function escapeHTML(s){
+      return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function openModal({title, meta, content, link}){
+      $modalTitle.textContent = title || "제목";
+      $modalMeta.textContent = meta || "—";
+      $modalContent.textContent = content || "";
+      $modalLink.href = link || "#";
+      $modal.classList.add("is-open");
+    }
+    function closeModal(){ $modal.classList.remove("is-open"); }
+    $modal.addEventListener("click", (e)=>{ if(e.target.dataset.close) closeModal(); });
+    window.addEventListener("keydown", (e)=>{ if(e.key === "Escape") closeModal(); });
+
+    async function loadSection(section, {force=false}={}){
+      try{
+        STATE.section = section;
+        STATE.options = {
+          freshness: clampInt($freshness.value, 0, 168),
+          domain_cap: clampInt($domainCap.value, 0, 10),
+          lang: ($lang.value||"").trim().slice(0,5)
+        };
+
+        $skeleton.hidden = false;
+        $newsList.hidden = true;
+        mountSkeleton();
+
+        const params = new URLSearchParams({
+          section,
+          ...(STATE.options.freshness ? {freshness:String(STATE.options.freshness)} : {}),
+          ...(STATE.options.domain_cap ? {domain_cap:String(STATE.options.domain_cap)} : {}),
+          ...(STATE.options.lang ? {lang:STATE.options.lang} : {})
+        });
+
+        const url = `/feed?${params.toString()}`;
+        const headers = {};
+        const cacheKeyBase = `${section}:${JSON.stringify(STATE.options)}`;
+        const savedETag = STATE.etagBySection[section] || localStorage.getItem(`etag:${cacheKeyBase}`);
+        if(savedETag && !force){ headers["If-None-Match"] = savedETag; }
+
+        const res = await fetch(url, { headers });
+        if(res.status === 304){
+          const key = `payload:${cacheKeyBase}`;
+          const cached = STATE.lastPayload[section] || JSON.parse(localStorage.getItem(key) || "null");
+          if(cached){ renderAfterLoad(cached); return; }
+          return await loadSection(section, {force:true});
+        }
+
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const etag = res.headers.get("ETag");
+        const payload = await res.json();
+
+        if(etag){
+          STATE.etagBySection[section] = etag;
+          localStorage.setItem(`etag:${cacheKeyBase}`, etag);
+        }
+        STATE.lastPayload[section] = payload;
+        localStorage.setItem(`payload:${cacheKeyBase}`, JSON.stringify(payload));
+
+        renderAfterLoad(payload);
+      }catch(err){
+        console.error(err);
+        $errorBox.hidden = false;
+        $skeleton.hidden = true;
+        $newsList.hidden = false;
+      }
+    }
+
+    function clampInt(v,min,max){
+      let n = parseInt(v??"0",10);
+      if(!Number.isFinite(n)) n = 0;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function renderAfterLoad(payload){
+      $skeleton.hidden = true;
+      $newsList.hidden = false;
+      renderClusters(payload);
+    }
+
+    $tabs.forEach(t => {
+      t.addEventListener("click", () => {
+        $tabs.forEach(x => x.classList.remove("is-active"));
+        t.classList.add("is-active");
+        loadSection(t.dataset.section);
+      });
+    });
+
+    $refreshBtn.addEventListener("click", () => {
+      loadSection(STATE.section, {force:true});
+    });
+
+    let timer;
+    [$freshness, $domainCap, $lang].forEach($el => {
+      $el.addEventListener("input", () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => loadSection(STATE.section), 300);
+      });
+    });
+
+    (function init(){
+      document.getElementById("generatedAt").textContent = new Date().toLocaleString();
+      mountSkeleton();
+      loadSection(STATE.section);
+    })();
+
+    /* ================================
+       QA 체크리스트 (프런트엔드)
+       ================================
+       [렌더]
+       - 탭 전환 시 목록 갱신
+       - 모달: 제목/요약/레이블/별점/원문 링크 표시
+       - 빈 데이터/오류 표시
+       [캐시]
+       - 동일 옵션에서 304/캐시 동작
+       [옵션]
+       - freshness, domain_cap, lang 반영
+       [접근성]
+       - role/aria-selected
+       - 모달 ESC/배경 닫기
+    */
+  </script>
 </body>
 </html>
