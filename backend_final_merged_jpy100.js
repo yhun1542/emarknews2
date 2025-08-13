@@ -44,7 +44,11 @@ const {
 const whitelist = ORIGIN_WHITELIST ? ORIGIN_WHITELIST.split(',') : [];
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin && (NODE_ENV !== 'production' || !whitelist.length)) return callback(null, true);
+    // 개발 환경이거나 whitelist가 비어있으면 모든 origin 허용
+    if (NODE_ENV !== 'production' || !whitelist.length) return callback(null, true);
+    // origin이 없는 경우 (예: 같은 도메인 요청) 허용
+    if (!origin) return callback(null, true);
+    // whitelist에 있는 origin 허용
     if (whitelist.indexOf(origin) !== -1) {
       callback(null, true)
     } else {
