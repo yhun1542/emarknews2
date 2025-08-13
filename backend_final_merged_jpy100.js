@@ -597,7 +597,7 @@ app.get("/currency", async (_req, res) => {
     }
 
     if (!CURRENCY_API_KEY) {
-        return res.json({ usd_krw: null, jpy_krw: (null * 100) // 원/100엔 단위로 표시, error: "CURRENCY_API_KEY_NOT_SET" });
+        return res.json({ usd_krw: null, jpy_krw: null, error: "CURRENCY_API_KEY_NOT_SET" });
     }
 
     try {
