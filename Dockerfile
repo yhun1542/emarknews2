@@ -1,64 +1,33 @@
-# EmarkNews Production Dockerfile
-# Multi-stage build for optimized production image
-
-# Build stage
-FROM node:18-alpine AS builder
-
+# --- Stage 1: Dependencies ---
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Set robust npm networking (optional but helpful on CI)
+RUN npm config set fetch-timeout 600000 && npm config set fetch-retries 5
 
-# Install all dependencies (including devDependencies for build)
-RUN npm ci
+# Copy manifest & lockfile first to leverage layer caching
+COPY package.json package-lock.json ./
 
-# Copy source code
-COPY . .
+# Install only production deps for lean final image
+RUN npm ci --omit=dev
 
-# Run tests and linting
-RUN npm run test || true
-RUN npm run lint || true
-
-# Production stage
-FROM node:18-alpine AS production
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S emarknews -u 1001
-
+# --- Stage 2: Runtime ---
+FROM node:20-alpine
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy installed node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 
-# Install only production dependencies
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Copy application source
+COPY backend_final_merged_jpy100.js frontend_final_merged.html ./
 
-# Copy built application from builder stage
-COPY --from=builder --chown=emarknews:nodejs /app/ai-news-system-final.js ./
-COPY --from=builder --chown=emarknews:nodejs /app/public ./public/
+# Environment
+ENV NODE_ENV=production
+ENV PORT=8080
 
-# Set proper permissions
-RUN chown -R emarknews:nodejs /app
+EXPOSE 8080
 
-# Switch to non-root user
-USER emarknews
+# Healthcheck (optional)
+# HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD wget -qO- http://localhost:${PORT}/healthz || exit 1
 
-# Expose port
-EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/healthz', (res) => { \
-    process.exit(res.statusCode === 200 ? 0 : 1) \
-  }).on('error', () => process.exit(1))"
-
-# Start the application
-CMD ["node", "ai-news-system-final.js"]
-
-# Metadata
-LABEL maintainer="EmarkNews Team"
-LABEL version="2.0.0"
-LABEL description="EmarkNews Backend Server with Algorithm Optimization"
-
+CMD ["node", "backend_final_merged_jpy100.js"]

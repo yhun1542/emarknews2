@@ -1,32 +1,22 @@
 {
-  "name": "emarknews-server",
-  "version": "3.0.0",
-  "description": "EmarkNews Premium Backend Server with AI Translation and Currency",
-  "main": "ai-news-system-final.js",
+  "name": "emarknews2-premium",
+  "version": "1.0.0",
+  "description": "EmarkNews premium deploy (Railway)",
+  "main": "backend_final_merged_jpy100.js",
+  "type": "module",
   "scripts": {
-    "start": "node ai-news-system-final.js",
-    "dev": "node ai-news-system-final.js",
-    "test": "node test/health-check.js",
-    "lint": "eslint ai-news-system-final.js",
-    "audit": "npm audit --audit-level=moderate"
+    "start": "node backend_final_merged_jpy100.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "axios": "^1.7.2",
     "cors": "^2.8.5",
     "newsapi": "^2.4.1",
-    "twitter-api-v2": "^1.17.2",
+    "twitter-api-v2": "^1.16.0",
     "@google-cloud/translate": "^8.5.0",
-    "cheerio": "^1.0.0-rc.12"
-  },
-  "devDependencies": {
-    "eslint": "^8.57.0"
+    "cheerio": "^1.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
-  },
-  "keywords": ["news", "ai", "translation", "currency", "clustering", "api"],
-  "author": "EmarkNews Team",
-  "license": "MIT"
+    "node": ">=20"
+  }
 }
-
