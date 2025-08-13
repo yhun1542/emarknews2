@@ -4,10 +4,23 @@
   "description": "EmarkNews Backend Server with Algorithm Optimization",
   "main": "ai-news-system-final.js",
   "scripts": {
-    "start": "node ai-news-system-final.js"
+    "start": "node ai-news-system-final.js",
+    "dev": "node ai-news-system-final.js",
+    "test": "node test/health-check.js",
+    "lint": "eslint ai-news-system-final.js",
+    "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "express": "^4.19.2"
-  }
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["news", "ai", "clustering", "api"],
+  "author": "EmarkNews Team",
+  "license": "MIT"
 }
 
