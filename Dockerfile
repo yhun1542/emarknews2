@@ -31,3 +31,4 @@ EXPOSE 8080
 # HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD wget -qO- http://localhost:${PORT}/healthz || exit 1
 
 CMD ["node", "backend_final_merged_jpy100.js"]
+
