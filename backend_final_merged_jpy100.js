@@ -429,61 +429,8 @@ async function fetchArticlesForSection(section, freshness) {
           }
       }
 
-      // 3. 일본 뉴스 추가 소스 (네이버 API 활용) - 한국 뉴스 필터링 강화
-      if (section === "japan" && NAVER_CLIENT_ID && NAVER_CLIENT_SECRET) {
-          try {
-              // 순수 일본 관련 키워드만 사용
-              const japanQueries = ["일본 경제", "일본 정치", "닛케이", "도쿄 증시", "일본 기업", "일본 문화"];
-              
-              // 한국 관련 키워드 필터링 목록
-              const koreanKeywords = [
-                  '한국', '대한민국', '이재명', '윤석열', '문재인', '박근혜', 'K팝', '케이팝', 'BTS', '블랙핑크',
-                  '삼성', 'LG', '현대', '기아', '포스코', 'SK', '네이버', '카카오', '한일관계', '한일',
-                  '서울', '부산', '인천', '광주', '대구', '대전', '울산', '세종', '청와대', '국정원',
-                  '방일', '방한', '한국인', '한국어', '코리아', 'Korea', 'Korean', 'Seoul'
-              ];
-              
-              for (const query of japanQueries) {
-                  const encodedQuery = encodeURIComponent(query);
-                  const naverUrl = `https://openapi.naver.com/v1/search/news.json?query=${encodedQuery}&display=15&sort=date`;
-                  
-                  const naverResponse = await axios.get(naverUrl, {
-                      headers: {
-                          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-                          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
-                      },
-                      timeout: 5000
-                  });
-                  
-                  if (naverResponse.data && naverResponse.data.items) {
-                      const filteredArticles = naverResponse.data.items
-                          .filter(item => {
-                              const title = item.title.replace(/<[^>]*>/g, '');
-                              const description = item.description.replace(/<[^>]*>/g, '');
-                              const content = title + ' ' + description;
-                              
-                              // 한국 관련 키워드가 포함된 뉴스 제외
-                              return !koreanKeywords.some(keyword => 
-                                  content.toLowerCase().includes(keyword.toLowerCase())
-                              );
-                          })
-                          .map(item => ({
-                              title: item.title.replace(/<[^>]*>/g, ''),
-                              summary: item.description.replace(/<[^>]*>/g, ''),
-                              content: item.description.replace(/<[^>]*>/g, ''),
-                              url: item.link,
-                              publishedAt: new Date(item.pubDate).toISOString(),
-                              source: '네이버 뉴스 (일본)'
-                          }));
-                      
-                      articles = articles.concat(filteredArticles);
-                  }
-              }
-              console.log(`Naver API: Added filtered Japan news, total articles: ${articles.length}`);
-          } catch (naverError) {
-              console.error(`Naver API error:`, naverError.message);
-          }
-      }
+      // 3. 일본 뉴스는 NewsAPI 일본 소스만 사용 (네이버 API 제외)
+      // 이미 위의 NewsAPI에서 country=jp, language=ja로 수집됨
 
       // 3. X (Twitter) 뉴스 (기존 로직 유지)
       if (section === "x" && twitterClient) {
