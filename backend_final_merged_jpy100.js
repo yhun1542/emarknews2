@@ -628,10 +628,10 @@ app.get("/currency", async (_req, res) => {
     }
 
     try {
-        const { data } = await axios.get(`http://api.exchangeratesapi.io/v1/latest?access_key=${CURRENCY_API_KEY}&symbols=USD,JPY,KRW`);
-        if (!data.success || !data.rates) throw new Error("Invalid response");
-        const rates = data.rates;
-        const usd_krw = rates.KRW / rates.USD;
+        const { data } = await axios.get(`https://v6.exchangerate-api.com/v6/${CURRENCY_API_KEY}/latest/USD`);
+        if (data.result !== "success" || !data.conversion_rates) throw new Error("Invalid response");
+        const rates = data.conversion_rates;
+        const usd_krw = rates.KRW;
         const jpy_krw = (rates.KRW / rates.JPY) * 100;
         const payload = { usd_krw, jpy_krw };
         currencyCache = payload;
