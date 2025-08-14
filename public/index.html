@@ -1,361 +1,352 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>EmarkNews — Mobile First UI (FINAL up to STEP 5-1)</title>
-  <style>
-    :root{
-      --bg:#0b0c10; --card:#14161c; --ink:#e8ecf1; --muted:#9aa4b2; --accent:#3ea6ff;
-      --chip:#1b1f2a; --border:#232735; --ok:#2ecc71; --warn:#ffb020; --danger:#ff5c5c;
-    }
-    *{box-sizing:border-box} html,body{height:100%}
-    body{margin:0; background:var(--bg); color:var(--ink);
-      font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-    }
-    .wrap{max-width:960px; margin:0 auto; padding:12px 12px 72px}
-    .topbar{position:sticky; top:0; z-index:20; backdrop-filter: blur(10px);
-      background:rgba(11,12,16,.7); border-bottom:1px solid var(--border)}
-    .topbar__inner{max-width:960px; margin:0 auto; padding:10px 12px; display:flex; align-items:center; gap:10px}
-    .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink)}
-    .brand__logo{width:28px; height:28px; border-radius:6px; background:linear-gradient(135deg, var(--accent), #9f7aea)}
-    .brand__name{font-weight:700; letter-spacing:.1px}
-    .tabs{display:flex; gap:8px; padding:10px 12px; overflow:auto; border-bottom:1px solid var(--border)}
-    .tab{white-space:nowrap; padding:8px 12px; border-radius:999px; background:var(--chip); color:var(--muted); border:1px solid var(--border);
-      cursor:pointer; user-select:none; transition:transform .08s ease}
-    .tab:active{transform:scale(.98)} .tab.is-active{background:var(--accent); color:#081018; border-color:transparent; font-weight:700}
-    .toolbar{display:flex; gap:8px; padding:8px 12px; align-items:center; border-bottom:1px solid var(--border)}
-    .btn{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:#0e1117; color:var(--ink); cursor:pointer}
-    .btn:focus{outline:2px solid var(--accent); outline-offset:2px} .btn--ghost{background:transparent}
-    .spacer{flex:1} .meta{color:var(--muted); font-size:12px}
-    .grid{display:grid; gap:10px; grid-template-columns:1fr}
-    @media(min-width:640px){ .grid{grid-template-columns:1fr 1fr} }
-    @media(min-width:960px){ .grid{grid-template-columns:1fr 1fr 1fr} }
-    .card{background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; min-height:140px}
-    .card__body{padding:12px}
-    .card__kicker{font-size:11px; letter-spacing:.4px; color:var(--muted); text-transform:uppercase}
-    .card__title{margin:6px 0 4px; font-size:15px; line-height:1.45; font-weight:700; cursor:pointer}
-    .card__summary{color:var(--muted); font-size:13px}
-    .chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center}
-    .chip{font-size:11px; padding:4px 8px; border-radius:999px; background:#10131a; border:1px dashed var(--border); color:var(--muted)}
-    .rating{margin-left:auto; font-weight:700; color:var(--accent)}
-    .skeleton{position:relative; overflow:hidden; background:#0f1320}
-    .skeleton::after{content:""; position:absolute; inset:0; transform:translateX(-100%);
-      background:linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); animation:shimmer 1.2s infinite}
-    @keyframes shimmer{100%{transform:translateX(100%)}} .sk-title{height:16px; width:80%; border-radius:6px; margin:8px 0}
-    .sk-line{height:12px; width:100%; border-radius:6px; margin:6px 0} .sk-chip{height:20px; width:64px; border-radius:999px; display:inline-block; margin:6px 6px 0 0}
-    .modal{position:fixed; inset:0; display:none; align-items:flex-end; justify-content:center; z-index:50}
-    .modal.is-open{display:flex}
-    .modal__backdrop{position:absolute; inset:0; background:rgba(0,0,0,.55)}
-    .modal__panel{position:relative; width:100%; max-width:720px; background:var(--card);
-      border-top-left-radius:16px; border-top-right-radius:16px; border:1px solid var(--border);
-      padding:14px; box-shadow:0 -10px 40px rgba(0,0,0,.45)}
-    .modal__title{margin:0 0 6px; font-size:16px; font-weight:800}
-    .modal__meta{font-size:12px; color:var(--muted)} .modal__content{margin-top:10px; color:var(--ink)}
-    .modal__actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
-    .empty{padding:16px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:10px; background:#0e1117}
-    .error{color:var(--danger)}
-    .controls{display:flex; gap:8px; flex-wrap:wrap; padding:8px 12px; border-bottom:1px dashed var(--border)}
-    .ctrl{display:flex; gap:6px; align-items:center}
-    .ctrl input{width:80px; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background:#0e1117; color:var(--ink)}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmarkNews — AI 뉴스 플랫폼</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0b0c10;
+            color: #e8ecf1;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 0;
+            border-bottom: 1px solid #232735;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #3ea6ff;
+        }
+        .currency { color: #9aa4b2; font-size: 14px; }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #14161c;
+            border: 1px solid #232735;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #9aa4b2;
+        }
+        .tab.active, .tab:hover {
+            background: #3ea6ff;
+            color: #081018;
+            border-color: #3ea6ff;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: #3ea6ff;
+            color: #081018;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn:hover { background: #2e96ef; }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9aa4b2;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            background: #14161c;
+            border: 1px solid #232735;
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-2px); }
+        .card-header {
+            font-size: 12px;
+            color: #9aa4b2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            cursor: pointer;
+            color: #e8ecf1;
+        }
+        .card-title:hover { color: #3ea6ff; }
+        .card-summary {
+            color: #9aa4b2;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #9aa4b2;
+        }
+        .rating {
+            background: #3ea6ff;
+            color: #081018;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #14161c;
+            border: 1px solid #232735;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #e8ecf1;
+        }
+        .modal-summary {
+            color: #9aa4b2;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #ff5c5c;
+            background: #1a0f0f;
+            border: 1px solid #3d1a1a;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar__inner">
-      <a class="brand" href="#"><img class="brand__logo" src="/logo.png" alt="EmarkNews Logo" style="width:28px; height:28px; border-radius:6px;"><div class="brand__name">EmarkNews</div></a>
-      <div class="spacer"></div>
-      <span class="meta" id="currencyInfo">환율 정보를 불러오는 중...</span>
-      <span class="meta" id="generatedAt">—</span>
-    </div>
-    <nav class="tabs" role="tablist" aria-label="Sections">
-      <button class="tab is-active" data-section="world" role="tab" aria-selected="true">세계</button>
-      <button class="tab" data-section="kr" role="tab" aria-selected="false">국내</button>
-      <button class="tab" data-section="japan" role="tab" aria-selected="false">일본</button>
-      <button class="tab" data-section="x" role="tab" aria-selected="false">X</button>
-      <button class="tab" data-section="biz" role="tab" aria-selected="false">비즈</button>
-      <button class="tab" data-section="tech" role="tab" aria-selected="false">테크</button>
-    </nav>
-    <div class="toolbar">
-      <button class="btn btn--ghost" id="refreshBtn" title="새로고침">새로고침</button>
-      <div class="spacer"></div>
-      <span class="meta">캐시·번역 최적화 적용</span>
-    </div>
-    <div class="controls" aria-label="/feed options">
-      <div class="ctrl">freshness(h): <input type="number" id="freshness" min="0" step="1" value="0" /></div>
-      <div class="ctrl">domain_cap: <input type="number" id="domainCap" min="0" step="1" value="0" /></div>
-      <div class="ctrl">lang: <input type="text" id="lang" placeholder="ko/en/jp…" /></div>
-    </div>
-  </header>
-
-  <main class="wrap">
-    <section id="skeleton" aria-hidden="false">
-      <div class="grid" id="skeletonGrid"></div>
-    </section>
-    <section id="newsList" hidden>
-      <div class="grid" id="grid"></div>
-      <div id="empty" class="empty" hidden>표시할 항목이 없습니다.</div>
-      <div id="errorBox" class="empty error" hidden>데이터 로드 중 문제가 발생했습니다.</div>
-    </section>
-  </main>
-
-  <div class="modal" id="modal">
-    <div class="modal__backdrop" data-close="1"></div>
-    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <h2 class="modal__title" id="modalTitle">제목</h2>
-      <div class="modal__meta" id="modalMeta">—</div>
-      <div class="modal__content" id="modalContent">내용</div>
-      <div class="modal__actions">
-        <button class="btn btn--ghost" data-close="1">닫기</button>
-        <a class="btn" id="modalLink" href="#" target="_blank" rel="noopener">원문 열기</a>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const $tabs = document.querySelectorAll(".tab");
-    const $grid = document.getElementById("grid");
-    const $generatedAt = document.getElementById("generatedAt");
-    const $skeleton = document.getElementById("skeleton");
-    const $newsList = document.getElementById("newsList");
-    const $empty = document.getElementById("empty");
-    const $errorBox = document.getElementById("errorBox");
-    const $refreshBtn = document.getElementById("refreshBtn");
-    const $modal = document.getElementById("modal");
-    const $modalTitle = document.getElementById("modalTitle");
-    const $modalMeta = document.getElementById("modalMeta");
-    const $modalContent = document.getElementById("modalContent");
-    const $modalLink = document.getElementById("modalLink");
-    const $skeletonGrid = document.getElementById("skeletonGrid");
-
-    const $freshness = document.getElementById("freshness");
-    const $domainCap = document.getElementById("domainCap");
-    const $lang = document.getElementById("lang");
-
-    const STATE = {
-      section: "world",
-      etagBySection: {},
-      lastPayload: {},
-      options: { freshness: 0, domain_cap: 0, lang: "" }
-    };
-
-    function mountSkeleton(n=9){
-      $skeletonGrid.innerHTML = "";
-      const tpl = (extraChips=2)=>`
-        <article class="card">
-          <div class="card__body">
-            <div class="skeleton sk-title"></div>
-            <div class="skeleton sk-line" style="width:92%"></div>
-            <div class="skeleton sk-line" style="width:70%"></div>
-            <div class="chips">
-              ${Array.from({length:extraChips}).map(()=>`<span class="skeleton sk-chip"></span>`).join("")}
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                📰 EmarkNews
             </div>
-          </div>
-        </article>`;
-      let html = "";
-      for(let i=0;i<n;i++) html += tpl(i%3+1);
-      $skeletonGrid.innerHTML = html;
-    }
+            <div class="currency" id="currency">환율 로딩 중...</div>
+        </header>
 
-    function renderClusters(payload){
-      const { clusters = [], generatedAt } = payload || {};
-      $grid.innerHTML = "";
-      $empty.hidden = true;
-      $errorBox.hidden = true;
+        <nav class="tabs">
+            <button class="tab active" data-section="world">🌍 세계</button>
+            <button class="tab" data-section="kr">🇰🇷 국내</button>
+            <button class="tab" data-section="japan">🇯🇵 일본</button>
+            <button class="tab" data-section="x">📱 X</button>
+            <button class="tab" data-section="biz">💼 비즈</button>
+            <button class="tab" data-section="tech">💻 테크</button>
+        </nav>
 
-      if(!clusters.length){
-        $empty.hidden = false;
-        return;
-      }
+        <div class="controls">
+            <button class="btn" id="refresh">새로고침</button>
+            <span style="color: #9aa4b2;">AI 요약 · 번역 · 클러스터링 적용</span>
+        </div>
 
-      const frag = document.createDocumentFragment();
-      for(const c of clusters){
-        const art = c.articles?.[0] || {};
-        const kicker = (c.labels && c.labels.length) ? c.labels.join(" · ") : (c.keywords?.slice(0,2).join(" · ") || "update");
-        const title = art.title || "(제목 없음)";
-        const summary = art.summary || "";
-        const rating = (typeof c.rating === "number") ? c.rating.toFixed(2) : "—";
-        const link = art.url || "#";
+        <div id="loading" class="loading">뉴스를 불러오는 중...</div>
+        <div id="error" class="error" style="display: none;">
+            뉴스를 불러오는데 실패했습니다. 새로고침을 시도해보세요.
+        </div>
+        <div id="grid" class="grid"></div>
+    </div>
 
-        const card = document.createElement("article");
-        card.className = "card";
-        card.innerHTML = `
-          <div class="card__body">
-            <div class="card__kicker">${escapeHTML(kicker)}</div>
-            <h3 class="card__title" data-link="${encodeURI(link)}">${escapeHTML(title)}</h3>
-            <div class="card__summary">${escapeHTML(summary)}</div>
-            <div class="chips">
-              ${(c.keywords||[]).slice(0,3).map(k=>`<span class="chip">${escapeHTML(k)}</span>`).join("")}
-              <span class="rating" title="별점 (0~5)">${rating}</span>
+    <!-- 모달 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title" class="modal-title">제목</h2>
+            <div id="modal-summary" class="modal-summary">내용</div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal()">닫기</button>
+                <a id="modal-link" class="btn" href="#" target="_blank">원문 보기</a>
             </div>
-          </div>
-        `;
+        </div>
+    </div>
 
-        card.querySelector(".card__title").addEventListener("click", () => {
-          openModal({
-            title,
-            meta: [
-              `레이블: ${(c.labels||[]).join(", ") || "—"}`,
-              `별점: ${rating}`,
-              `클러스터 크기: ${c.size || c.articles?.length || 1}`
-            ].join(" · "),
-            content: summary || "요약이 없습니다.",
-            link
-          });
+    <script>
+        let currentSection = 'world';
+
+        // 환율 정보 로드
+        async function loadCurrency() {
+            try {
+                const response = await fetch('/currency');
+                const data = await response.json();
+                const usd = data.usd_krw ? Math.round(data.usd_krw) + '원' : 'N/A';
+                const jpy = data.jpy_krw ? Math.round(data.jpy_krw) + '원/100엔' : 'N/A';
+                document.getElementById('currency').textContent = `USD: ${usd} | JPY: ${jpy}`;
+            } catch (error) {
+                console.error('환율 로드 실패:', error);
+                document.getElementById('currency').textContent = '환율 정보 오류';
+            }
+        }
+
+        // 뉴스 로드
+        async function loadNews(section = 'world') {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const grid = document.getElementById('grid');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            grid.innerHTML = '';
+
+            try {
+                console.log(`Loading news for section: ${section}`);
+                const response = await fetch(`/feed?section=${section}&lang=ko`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('API Response:', data);
+
+                loading.style.display = 'none';
+
+                if (!data.clusters || data.clusters.length === 0) {
+                    error.textContent = '표시할 뉴스가 없습니다.';
+                    error.style.display = 'block';
+                    return;
+                }
+
+                // 뉴스 카드 렌더링
+                data.clusters.forEach(cluster => {
+                    if (!cluster.articles || cluster.articles.length === 0) return;
+
+                    const article = cluster.articles[0];
+                    const card = document.createElement('div');
+                    card.className = 'card';
+
+                    const labels = cluster.labels && cluster.labels.length > 0 
+                        ? cluster.labels.join(' · ') 
+                        : '뉴스';
+                    
+                    const title = article.title || '제목 없음';
+                    const summary = article.summary || '요약 없음';
+                    const rating = cluster.rating ? cluster.rating.toFixed(2) : 'N/A';
+                    const url = article.url || '#';
+
+                    card.innerHTML = `
+                        <div class="card-header">${labels}</div>
+                        <div class="card-title" onclick="openModal('${escapeHtml(title)}', '${escapeHtml(summary)}', '${url}')">${title}</div>
+                        <div class="card-summary">${summary}</div>
+                        <div class="card-footer">
+                            <span>${new Date().toLocaleDateString()}</span>
+                            <span class="rating">${rating}</span>
+                        </div>
+                    `;
+
+                    grid.appendChild(card);
+                });
+
+            } catch (err) {
+                console.error('뉴스 로드 오류:', err);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+            }
+        }
+
+        // HTML 이스케이프
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/'/g, '&#39;');
+        }
+
+        // 모달 열기
+        function openModal(title, summary, url) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-summary').textContent = summary;
+            document.getElementById('modal-link').href = url;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // 탭 클릭 이벤트
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 활성 탭 변경
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // 뉴스 로드
+                currentSection = tab.dataset.section;
+                loadNews(currentSection);
+            });
         });
 
-        frag.appendChild(card);
-      }
-      $grid.appendChild(frag);
-      $generatedAt.textContent = new Date(generatedAt || Date.now()).toLocaleString();
-    }
-
-    function escapeHTML(s){
-      return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-
-    function openModal({title, meta, content, link}){
-      $modalTitle.textContent = title || "제목";
-      $modalMeta.textContent = meta || "—";
-      $modalContent.textContent = content || "";
-      $modalLink.href = link || "#";
-      $modal.classList.add("is-open");
-    }
-    function closeModal(){ $modal.classList.remove("is-open"); }
-    $modal.addEventListener("click", (e)=>{ if(e.target.dataset.close) closeModal(); });
-    window.addEventListener("keydown", (e)=>{ if(e.key === "Escape") closeModal(); });
-
-    async function loadSection(section, {force=false}={}){
-      try{
-        STATE.section = section;
-        STATE.options = {
-          freshness: clampInt($freshness.value, 0, 168),
-          domain_cap: clampInt($domainCap.value, 0, 10),
-          lang: ($lang.value||"").trim().slice(0,5)
-        };
-
-        $skeleton.hidden = false;
-        $newsList.hidden = true;
-        mountSkeleton();
-
-        const params = new URLSearchParams({
-          section,
-          ...(STATE.options.freshness ? {freshness:String(STATE.options.freshness)} : {}),
-          ...(STATE.options.domain_cap ? {domain_cap:String(STATE.options.domain_cap)} : {}),
-          ...(STATE.options.lang ? {lang:STATE.options.lang} : {})
+        // 새로고침 버튼
+        document.getElementById('refresh').addEventListener('click', () => {
+            loadNews(currentSection);
         });
 
-        const url = `/feed?${params.toString()}`;
-        const headers = {};
-        const cacheKeyBase = `${section}:${JSON.stringify(STATE.options)}`;
-        const savedETag = STATE.etagBySection[section] || localStorage.getItem(`etag:${cacheKeyBase}`);
-        if(savedETag && !force){ headers["If-None-Match"] = savedETag; }
+        // 모달 배경 클릭 시 닫기
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
 
-        const res = await fetch(url, { headers });
-        if(res.status === 304){
-          const key = `payload:${cacheKeyBase}`;
-          const cached = STATE.lastPayload[section] || JSON.parse(localStorage.getItem(key) || "null");
-          if(cached){ renderAfterLoad(cached); return; }
-          return await loadSection(section, {force:true});
-        }
-
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const etag = res.headers.get("ETag");
-        const payload = await res.json();
-
-        if(etag){
-          STATE.etagBySection[section] = etag;
-          localStorage.setItem(`etag:${cacheKeyBase}`, etag);
-        }
-        STATE.lastPayload[section] = payload;
-        localStorage.setItem(`payload:${cacheKeyBase}`, JSON.stringify(payload));
-
-        renderAfterLoad(payload);
-      }catch(err){
-        console.error(err);
-        $errorBox.hidden = false;
-        $skeleton.hidden = true;
-        $newsList.hidden = false;
-      }
-    }
-
-    function clampInt(v,min,max){
-      let n = parseInt(v??"0",10);
-      if(!Number.isFinite(n)) n = 0;
-      return Math.max(min, Math.min(max, n));
-    }
-
-    function renderAfterLoad(payload){
-      $skeleton.hidden = true;
-      $newsList.hidden = false;
-      renderClusters(payload);
-    }
-
-    $tabs.forEach(t => {
-      t.addEventListener("click", () => {
-        $tabs.forEach(x => x.classList.remove("is-active"));
-        t.classList.add("is-active");
-        loadSection(t.dataset.section);
-      });
-    });
-
-    $refreshBtn.addEventListener("click", () => {
-      loadSection(STATE.section, {force:true});
-    });
-
-    let timer;
-    [$freshness, $domainCap, $lang].forEach($el => {
-      $el.addEventListener("input", () => {
-        clearTimeout(timer);
-        timer = setTimeout(() => loadSection(STATE.section), 300);
-      });
-    });
-
-    (function init(){
-      document.getElementById("generatedAt").textContent = new Date().toLocaleString();
-      mountSkeleton();
-      loadSection(STATE.section);
-      loadCurrencyInfo();
-    })();
-
-    // 환율 정보 로드 함수
-    async function loadCurrencyInfo() {
-      try {
-        const response = await fetch('/currency');
-        const data = await response.json();
-        
-        if (data.error) {
-          document.getElementById("currencyInfo").textContent = "환율 정보 오류";
-          return;
-        }
-        
-        const usdKrw = data.usd_krw ? Math.round(data.usd_krw) : '—';
-        const jpyKrw = data.jpy_krw ? Math.round(data.jpy_krw) : '—';
-        
-        document.getElementById("currencyInfo").textContent = `USD: ${usdKrw}원 | JPY: ${jpyKrw}원/100엔`;
-      } catch (error) {
-        console.error('환율 정보 로드 실패:', error);
-        document.getElementById("currencyInfo").textContent = "환율 정보 로드 실패";
-      }
-    }
-
-    /* ================================
-       QA 체크리스트 (프런트엔드)
-       ================================
-       [렌더]
-       - 탭 전환 시 목록 갱신
-       - 모달: 제목/요약/레이블/별점/원문 링크 표시
-       - 빈 데이터/오류 표시
-       [캐시]
-       - 동일 옵션에서 304/캐시 동작
-       [옵션]
-       - freshness, domain_cap, lang 반영
-       [접근성]
-       - role/aria-selected
-       - 모달 ESC/배경 닫기
-    */
-  </script>
+        // 초기 로드
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, starting initial load...');
+            loadCurrency();
+            loadNews(currentSection);
+        });
+    </script>
 </body>
 </html>
+
