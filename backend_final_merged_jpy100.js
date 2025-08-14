@@ -35,7 +35,9 @@ const {
   ORIGIN_WHITELIST = "",
   NODE_ENV = "development",
   GENERATIVE_AI_API_KEY = "", // For OpenAI/Gemini/Claude etc.
-  GENERATIVE_AI_ENDPOINT = "" // e.g., https://api.openai.com/v1/chat/completions
+  GENERATIVE_AI_ENDPOINT = "", // e.g., https://api.openai.com/v1/chat/completions
+  NAVER_CLIENT_ID = "",       // 네이버 API 클라이언트 ID
+  NAVER_CLIENT_SECRET = ""    // 네이버 API 클라이언트 시크릿
 } = process.env;
 
 /* =========================================
