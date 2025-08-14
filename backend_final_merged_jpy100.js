@@ -315,7 +315,7 @@ function mergeNearbyBuckets(buckets) {
   return buckets;
 }
 
-function clusterArticles(articles) {
+function clusterArticles(articles, section = null) {
   const buckets = new Map();
   for (const a of articles) {
     const sig = articleSignature(a);
@@ -754,7 +754,7 @@ app.get("/feed", cacheControl, async (req, res) => {
     items = await translateArticles(items, lang);
 
     // 5) 클러스터링 (고도화 버전)
-    const clusters = clusterArticles(items);
+    const clusters = clusterArticles(items, section);
 
     const payload = {
       section, freshness, domain_cap: domainCap, lang, sum_limit: sumLimit, // payload에 sum_limit 추가 (디버깅용)
