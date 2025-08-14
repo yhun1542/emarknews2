@@ -157,17 +157,23 @@ const LABEL_RULES = {
   world:    [/united\s*nations|eu|nato|중동|우크라이나|이스라엘|국제|세계/i],
   sport:    [/world\s*cup|olympic|league|match|경기|리그|올림픽|월드컵/i],
   entertainment: [/film|movie|box\s*office|drama|idol|k-pop|배우|영화|드라마|음원|아이돌/i],
-  japan:    [/japan|tokyo|osaka|yen|kishida|일본|도쿄|오사카|엔화|기시다/i],
-  korea:    [/korea|seoul|won|한국|서울|부산|대한민국|원화/i]
+  japan:    [/japan|tokyo|osaka|yen|kishida|일본|도쿄|오사카|엔화|기시다|닛케이|혼슈|규슈|시코쿠|홋카이도/i],
+  korea:    [/korea|seoul|won|한국|서울|부산|대한민국|원화|청와대|국회|이재명|윤석열/i]
 };
 
-function detectLabelsForText(text, maxLabels = 2) {
+function detectLabelsForText(text, maxLabels = 2, section = null) {
   const hits = [];
   for (const [label, patterns] of Object.entries(LABEL_RULES)) {
     for (const re of patterns) {
       if (re.test(text)) { hits.push(label); break; }
     }
   }
+  
+  // 일본 섹션에서는 한국 라벨이 포함된 뉴스 제외
+  if (section === "japan" && hits.includes("korea")) {
+    return []; // 빈 라벨 반환으로 해당 뉴스 제외
+  }
+  
   if (hits.length > maxLabels) {
     const prio = { tech:9, economy:8, business:7, politics:6, world:5, korea:4, japan:3, sport:2, entertainment:1 };
     hits.sort((a,b)=>(prio[b]||0)-(prio[a]||0));
@@ -318,7 +324,7 @@ function clusterArticles(articles) {
     cluster.articles.push(a);
     updateCentroid(cluster, a);
     cluster.score = clusterScore(cluster);
-    cluster.labels = detectLabelsForText([a.title, a.summary].join(" "), 2);
+    cluster.labels = detectLabelsForText([a.title, a.summary].join(" "), 2, section);
   }
 
   const mergedBuckets = mergeNearbyBuckets(buckets);
@@ -423,14 +429,23 @@ async function fetchArticlesForSection(section, freshness) {
           }
       }
 
-      // 3. 일본 뉴스 추가 소스 (네이버 API 활용)
+      // 3. 일본 뉴스 추가 소스 (네이버 API 활용) - 한국 뉴스 필터링 강화
       if (section === "japan" && NAVER_CLIENT_ID && NAVER_CLIENT_SECRET) {
           try {
-              const japanQueries = ["일본", "Japan", "도쿄", "Tokyo", "일본경제", "닛케이"];
+              // 순수 일본 관련 키워드만 사용
+              const japanQueries = ["일본 경제", "일본 정치", "닛케이", "도쿄 증시", "일본 기업", "일본 문화"];
+              
+              // 한국 관련 키워드 필터링 목록
+              const koreanKeywords = [
+                  '한국', '대한민국', '이재명', '윤석열', '문재인', '박근혜', 'K팝', '케이팝', 'BTS', '블랙핑크',
+                  '삼성', 'LG', '현대', '기아', '포스코', 'SK', '네이버', '카카오', '한일관계', '한일',
+                  '서울', '부산', '인천', '광주', '대구', '대전', '울산', '세종', '청와대', '국정원',
+                  '방일', '방한', '한국인', '한국어', '코리아', 'Korea', 'Korean', 'Seoul'
+              ];
               
               for (const query of japanQueries) {
                   const encodedQuery = encodeURIComponent(query);
-                  const naverUrl = `https://openapi.naver.com/v1/search/news.json?query=${encodedQuery}&display=10&sort=date`;
+                  const naverUrl = `https://openapi.naver.com/v1/search/news.json?query=${encodedQuery}&display=15&sort=date`;
                   
                   const naverResponse = await axios.get(naverUrl, {
                       headers: {
@@ -441,18 +456,30 @@ async function fetchArticlesForSection(section, freshness) {
                   });
                   
                   if (naverResponse.data && naverResponse.data.items) {
-                      const japanArticles = naverResponse.data.items.map(item => ({
-                          title: item.title.replace(/<[^>]*>/g, ''),
-                          summary: item.description.replace(/<[^>]*>/g, ''),
-                          content: item.description.replace(/<[^>]*>/g, ''),
-                          url: item.link,
-                          publishedAt: new Date(item.pubDate).toISOString(),
-                          source: '네이버 뉴스 (일본)'
-                      }));
-                      articles = articles.concat(japanArticles);
+                      const filteredArticles = naverResponse.data.items
+                          .filter(item => {
+                              const title = item.title.replace(/<[^>]*>/g, '');
+                              const description = item.description.replace(/<[^>]*>/g, '');
+                              const content = title + ' ' + description;
+                              
+                              // 한국 관련 키워드가 포함된 뉴스 제외
+                              return !koreanKeywords.some(keyword => 
+                                  content.toLowerCase().includes(keyword.toLowerCase())
+                              );
+                          })
+                          .map(item => ({
+                              title: item.title.replace(/<[^>]*>/g, ''),
+                              summary: item.description.replace(/<[^>]*>/g, ''),
+                              content: item.description.replace(/<[^>]*>/g, ''),
+                              url: item.link,
+                              publishedAt: new Date(item.pubDate).toISOString(),
+                              source: '네이버 뉴스 (일본)'
+                          }));
+                      
+                      articles = articles.concat(filteredArticles);
                   }
               }
-              console.log(`Naver API: Added Japan news, total articles: ${articles.length}`);
+              console.log(`Naver API: Added filtered Japan news, total articles: ${articles.length}`);
           } catch (naverError) {
               console.error(`Naver API error:`, naverError.message);
           }
