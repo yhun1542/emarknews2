@@ -29,7 +29,7 @@ const {
   PORT = 3000,
   NEWS_API_KEYS = "",         
   TWITTER_BEARER_TOKEN = "",  
-  GOOGLE_PROJECT_ID = "",     
+  GOOGLE_PROJECT_ID = "emarknews",     // 강제 폴백 값 추가
   GOOGLE_APPLICATION_CREDENTIALS = "", // JSON content as string
   CURRENCY_API_KEY = "",      
   ORIGIN_WHITELIST = "",
@@ -772,3 +772,4 @@ if (require.main === module) {
 
 module.exports = { app };// Force redeploy Wed Aug 13 16:27:28 EDT 2025
 // Force redeploy to sync environment variables Wed Aug 13 20:20:26 EDT 2025
+// Force GOOGLE_PROJECT_ID fallback Wed Aug 13 20:33:06 EDT 2025
