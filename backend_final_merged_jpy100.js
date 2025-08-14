@@ -758,9 +758,12 @@ app.post("/translate", async (req, res) => {
 /* =========================================
    프론트엔드 파일 서빙 (공통)
    ========================================= */
+// 정적 파일 서빙 설정
+app.use(express.static(path.join(__dirname, "public")));
+
 app.get("/", (req, res) => {
     res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net;");
-    res.sendFile(path.join(__dirname, "frontend_final_merged.html"));
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 /* =========================================
