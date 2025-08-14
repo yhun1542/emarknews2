@@ -64,8 +64,9 @@
 <body>
   <header class="topbar">
     <div class="topbar__inner">
-      <a class="brand" href="#"><div class="brand__logo" aria-hidden="true"></div><div class="brand__name">EmarkNews</div></a>
+      <a class="brand" href="#"><img class="brand__logo" src="/logo.png" alt="EmarkNews Logo" style="width:28px; height:28px; border-radius:6px;"><div class="brand__name">EmarkNews</div></a>
       <div class="spacer"></div>
+      <span class="meta" id="currencyInfo">환율 정보를 불러오는 중...</span>
       <span class="meta" id="generatedAt">—</span>
     </div>
     <nav class="tabs" role="tablist" aria-label="Sections">
@@ -316,7 +317,29 @@
       document.getElementById("generatedAt").textContent = new Date().toLocaleString();
       mountSkeleton();
       loadSection(STATE.section);
+      loadCurrencyInfo();
     })();
+
+    // 환율 정보 로드 함수
+    async function loadCurrencyInfo() {
+      try {
+        const response = await fetch('/currency');
+        const data = await response.json();
+        
+        if (data.error) {
+          document.getElementById("currencyInfo").textContent = "환율 정보 오류";
+          return;
+        }
+        
+        const usdKrw = data.usd_krw ? Math.round(data.usd_krw) : '—';
+        const jpyKrw = data.jpy_krw ? Math.round(data.jpy_krw) : '—';
+        
+        document.getElementById("currencyInfo").textContent = `USD: ${usdKrw}원 | JPY: ${jpyKrw}원/100엔`;
+      } catch (error) {
+        console.error('환율 정보 로드 실패:', error);
+        document.getElementById("currencyInfo").textContent = "환율 정보 로드 실패";
+      }
+    }
 
     /* ================================
        QA 체크리스트 (프런트엔드)
