@@ -336,88 +336,136 @@ async function fetchArticlesForSection(section, freshness) {
   const fromDate = freshness > 0 ? new Date(NOW() - freshness * HOUR).toISOString() : undefined;
 
   try {
-      if (section === "x") {
-          if (!twitterClient) return [];
-          const query = "(news OR breaking OR update OR headlines) lang:en -is:retweet";
-          const { data } = await twitterClient.v2.search(query, {
-              "tweet.fields": ["text", "created_at", "author_id", "public_metrics"],
-              max_results: 50,
-              sort_order: "recency"
-          });
-          if (data && data.data) {
-            articles = data.data.map((tweet) => ({
-                title: tweet.text.slice(0, 150),
-                summary: tweet.text,
-                content: tweet.text,
-                url: `https://x.com/i/web/status/${tweet.id}`,
-                publishedAt: tweet.created_at,
-                source: "X (Twitter)"
-            }));
-          }
-      } else {
-          if (!newsapi) return getDummyData(section);
-          const params = {
-              language: "en",
-              pageSize: 50,
-          };
-          switch (section) {
-              case "world":
-                  params.category = "general";
-                  break;
-              case "kr":
-              case "domestic":
-                  params.q = "Korea OR Seoul OR Samsung OR Hyundai";
-                  break;
-              case "japan":
-                  params.country = "jp";
-                  params.language = "jp";
-                  break;
-              case "business":
-                  params.category = "business";
-                  break;
-              case "tech":
-                  params.category = "technology";
-                  break;
-              default:
-                  params.category = "general";
-          }
-          const response = await newsapi.v2.topHeadlines(params);
-          if (response.status === 'ok' && response.articles) {
-            articles = response.articles.map((a) => ({
-                title: a.title,
-                summary: a.description,
-                content: a.content,
-                url: a.url,
-                publishedAt: a.publishedAt,
-                source: a.source ? a.source.name : null
-            }));
+      // 1. NewsAPI에서 뉴스 가져오기
+      if (newsapi) {
+          try {
+              const params = {
+                  language: "en",
+                  pageSize: 30,
+              };
+              switch (section) {
+                  case "world":
+                      params.category = "general";
+                      break;
+                  case "kr":
+                  case "domestic":
+                      params.q = "Korea OR Seoul OR Samsung OR Hyundai OR Korean";
+                      break;
+                  case "japan":
+                      params.country = "jp";
+                      break;
+                  case "business":
+                      params.category = "business";
+                      break;
+                  case "tech":
+                      params.category = "technology";
+                      break;
+                  default:
+                      params.category = "general";
+              }
+              
+              const response = await newsapi.v2.topHeadlines(params);
+              if (response.status === 'ok' && response.articles) {
+                articles = response.articles
+                  .filter(a => a.title && a.title !== '[Removed]' && a.url)
+                  .map((a) => ({
+                      title: a.title,
+                      summary: a.description || a.title,
+                      content: a.content || a.description || '',
+                      url: a.url,
+                      publishedAt: a.publishedAt,
+                      source: a.source ? a.source.name : 'NewsAPI'
+                  }));
+                console.log(`NewsAPI: Fetched ${articles.length} articles for ${section}`);
+              }
+          } catch (newsApiError) {
+              console.error(`NewsAPI error for ${section}:`, newsApiError.message);
           }
       }
+
+      // 2. 네이버 API에서 한국 뉴스 추가 (한국 관련 섹션일 때)
+      if ((section === "kr" || section === "domestic" || section === "world") && NAVER_CLIENT_ID && NAVER_CLIENT_SECRET) {
+          try {
+              const queries = section === "kr" || section === "domestic" 
+                  ? ["정치", "경제", "사회", "기술"] 
+                  : ["Korea", "Korean", "Seoul"];
+              
+              for (const query of queries) {
+                  const encodedQuery = encodeURIComponent(query);
+                  const naverUrl = `https://openapi.naver.com/v1/search/news.json?query=${encodedQuery}&display=10&sort=date`;
+                  
+                  const naverResponse = await axios.get(naverUrl, {
+                      headers: {
+                          'X-Naver-Client-Id': NAVER_CLIENT_ID,
+                          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
+                      },
+                      timeout: 5000
+                  });
+                  
+                  if (naverResponse.data && naverResponse.data.items) {
+                      const naverArticles = naverResponse.data.items.map(item => ({
+                          title: item.title.replace(/<[^>]*>/g, ''), // HTML 태그 제거
+                          summary: item.description.replace(/<[^>]*>/g, ''),
+                          content: item.description.replace(/<[^>]*>/g, ''),
+                          url: item.link,
+                          publishedAt: new Date(item.pubDate).toISOString(),
+                          source: '네이버 뉴스'
+                      }));
+                      articles = articles.concat(naverArticles);
+                  }
+              }
+              console.log(`Naver API: Added Korean news, total articles: ${articles.length}`);
+          } catch (naverError) {
+              console.error(`Naver API error:`, naverError.message);
+          }
+      }
+
+      // 3. X (Twitter) 뉴스 (기존 로직 유지)
+      if (section === "x" && twitterClient) {
+          try {
+              const query = "(news OR breaking OR update OR headlines) lang:en -is:retweet";
+              const { data } = await twitterClient.v2.search(query, {
+                  "tweet.fields": ["text", "created_at", "author_id", "public_metrics"],
+                  max_results: 20,
+                  sort_order: "recency"
+              });
+              if (data && data.data) {
+                const twitterArticles = data.data.map((tweet) => ({
+                    title: tweet.text.slice(0, 150),
+                    summary: tweet.text,
+                    content: tweet.text,
+                    url: `https://x.com/i/web/status/${tweet.id}`,
+                    publishedAt: tweet.created_at,
+                    source: "X (Twitter)"
+                }));
+                articles = articles.concat(twitterArticles);
+                console.log(`Twitter API: Added ${twitterArticles.length} tweets`);
+              }
+          } catch (twitterError) {
+              console.error(`Twitter API error:`, twitterError.message);
+          }
+      }
+
+      // 4. 중복 제거 (URL 기준)
+      const uniqueArticles = [];
+      const seenUrls = new Set();
+      for (const article of articles) {
+          if (!seenUrls.has(article.url)) {
+              seenUrls.add(article.url);
+              uniqueArticles.push(article);
+          }
+      }
+      
+      console.log(`Final: ${uniqueArticles.length} unique articles for section ${section}`);
+      return uniqueArticles;
+
   } catch (error) {
       console.error(`Error fetching articles for section ${section}:`, error.message || error);
-      if (NODE_ENV === 'development' && articles.length === 0) {
-        return getDummyData(section);
-      }
       return [];
   }
-  return articles;
 }
 
-// 더미 데이터 (개발용)
-function getDummyData(section) {
-    const now = Date.now();
-    const sample = [
-        { title:"[DUMMY] Apple unveils new AI features for iPhone", summary:"The company introduced on-device models boosting performance.", url:"https://www.reuters.com/technology/apple-ai-iphone", publishedAt:new Date(now-1*HOUR).toISOString(), source: "Reuters" },
-        { title:"[DUMMY] 애플, 아이폰용 신규 AI 기능 공개 (번역됨)", summary:"온디바이스 모델로 성능 강화 발표.", url:"https://www.bbc.com/news/technology-apple-ai-kr", publishedAt:new Date(now-2*HOUR).toISOString(), source: "BBC" },
-        { title:"[DUMMY] Tesla expands self-driving beta in Europe", summary:"Regulatory approval unlocked for more countries.", url:"https://www.apnews.com/tesla-fsd-europe", publishedAt:new Date(now-5*HOUR).toISOString(), source: "AP News" },
-        { title:"[DUMMY] Japan launches new economic stimulus targeting inflation", summary:"Package focuses on relief and tech investment.", url:"https://www.nikkei.com/articles/japan-stimulus-2025", publishedAt:new Date(now-8*HOUR).toISOString(), source: "Nikkei" },
-        { title:"[DUMMY] X (Twitter) experiences brief outage globally", summary:"Users reported issues accessing the platform.", url:"https://x.com/status/12345", publishedAt:new Date(now-30*60000).toISOString(), source: "X" }
-    ];
-    if (section==="japan") return sample.filter(a=>/japan|일본|도쿄/i.test(`${a.title} ${a.summary}`));
-    if (section==="kr") return sample.filter(a=>/애플|테슬라|한국|서울|코리아/i.test(`${a.title} ${a.summary}`));
-    if (section==="x") return sample.filter(a=>a.source==="X");
-    return sample;
-}
+// 더미 데이터 함수 제거됨 - 실제 API 데이터만 사용
 
 /* =========================================
    AI-Enhanced Functions (AI 버전 통합)
