@@ -483,45 +483,61 @@ async function fetchArticlesForSection(section, freshness) {
    AI-Enhanced Functions (AI 버전 통합)
    ========================================= */
 
-// Web Scraping for Article Content (개선: User-Agent 추가, 타임아웃 증가, 셀렉터 확장, 에러 핸들링 강화)
-async function fetchArticleContent(url, article) {  // article 객체 추가 (대안 콘텐츠 사용 위해)
+// Web Scraping for Article Content (개선: RSS 리디렉션 처리, 대안 콘텐츠 강화)
+async function fetchArticleContent(url, article) {
   try {
-    const { data } = await axios.get(url, {
-      timeout: 10000,  // 타임아웃 5초 → 10초 증가
+    // RSS 리디렉션 처리: Google News URL을 원본 URL로 변환
+    let targetUrl = url;
+    if (url.includes('news.google.com')) {
+      try {
+        const { data } = await axios.get(url, { timeout: 5000 });
+        const $ = cheerio.load(data);
+        const redirectUrl = $('c-wiz a[rel="nofollow"]')?.attr('href') || url; // Google News 리디렉션 링크 추출
+        targetUrl = redirectUrl;
+      } catch (redirectError) {
+        console.warn('RSS redirect failed, using original URL:', redirectError.message);
+      }
+    }
+
+    const { data } = await axios.get(targetUrl, {
+      timeout: 10000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',  // User-Agent 추가 (403 방지)
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5'
       }
     });
     const $ = cheerio.load(data);
     let content = '';
-    // 셀렉터 확장: 더 많은 뉴스 사이트 대응 (e.g., BBC, Reuters, NYT 등)
+    // 확장된 셀렉터: 다양한 뉴스 사이트 지원
     $('article p, .article-body p, .story-body p, .content p, .post-content p, .entry-content p, main p, section p, div[itemprop="articleBody"] p, p').each((i, el) => {
       content += $(el).text().trim() + ' ';
     });
-    return content.trim() || '';  // 여전히 빈 경우 대안 처리 아래에서
+    return content.trim() || (article.content || article.description || article.title || '');
   } catch (e) {
     console.error('Scraping failed for', url, ':', e.message);
-    // 대안: 스크래핑 실패 시 원본 article의 description/content 사용 (NewsAPI 제공)
-    return (article.content || article.summary || article.description || '').trim();
+    // 대안: NewsAPI의 content, description, title 순으로 fallback
+    return (article.content || article.description || article.title || '').trim();
   }
 }
 
-// Generative AI Summary (sum_limit 추가: max_tokens로 사용)
+// Generative AI Summary (빈 콘텐츠 핸들링 강화)
 async function generateAiSummary(content, lang = 'en', sumLimit = 200) {
-  if (!content || !GENERATIVE_AI_API_KEY || !GENERATIVE_AI_ENDPOINT) return 'AI summary not available';
+  if (!content || !GENERATIVE_AI_API_KEY || !GENERATIVE_AI_ENDPOINT) {
+    console.warn('Cannot generate summary: missing content or API credentials');
+    return 'AI summary not available';
+  }
   const isKo = lang === 'ko';
-  const prompt = `Summarize this article in 3-5 sentences${isKo ? ' in Korean' : ''}: ${content.slice(0, 4000)}`; // Length limit
+  const prompt = `Summarize this article in 3-5 sentences${isKo ? ' in Korean' : ''}: ${content.slice(0, 4000)}`;
   try {
     const response = await axios.post(GENERATIVE_AI_ENDPOINT, {
-      model: 'gpt-4o-mini', // Or other model
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: 'You are a helpful news summarizer.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.5,
-      max_tokens: parseInt(sumLimit) || 200 // sum_limit 적용, 기본 200
+      max_tokens: parseInt(sumLimit) || 200
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -744,7 +760,11 @@ app.get("/feed", cacheControl, async (req, res) => {
     const contents = await Promise.all(items.map(item => fetchArticleContent(item.url, item)));
     const summaries = await Promise.all(contents.map((content, i) => generateAiSummary(content, lang, sumLimit)));
     items.forEach((item, i) => {
-      if (summaries[i] && summaries[i] !== 'Failed to generate summary') item.summary = summaries[i];
+      if (summaries[i] && summaries[i] !== 'Failed to generate summary') {
+        item.summary = summaries[i];
+      } else {
+        item.summary = item.description || item.content || item.title || 'No summary available';
+      }
     });
 
     // 3) 필터링 (Domain Cap)
