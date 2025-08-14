@@ -771,3 +771,4 @@ if (require.main === module) {
 }
 
 module.exports = { app };// Force redeploy Wed Aug 13 16:27:28 EDT 2025
+// Force redeploy to sync environment variables Wed Aug 13 20:20:26 EDT 2025
