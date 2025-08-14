@@ -355,6 +355,7 @@ async function fetchArticlesForSection(section, freshness) {
                       break;
                   case "japan":
                       params.country = "jp";
+                      params.language = "ja"; // 일본어 뉴스 수집
                       break;
                   case "business":
                       params.category = "business";
@@ -417,6 +418,41 @@ async function fetchArticlesForSection(section, freshness) {
                   }
               }
               console.log(`Naver API: Added Korean news, total articles: ${articles.length}`);
+          } catch (naverError) {
+              console.error(`Naver API error:`, naverError.message);
+          }
+      }
+
+      // 3. 일본 뉴스 추가 소스 (네이버 API 활용)
+      if (section === "japan" && NAVER_CLIENT_ID && NAVER_CLIENT_SECRET) {
+          try {
+              const japanQueries = ["일본", "Japan", "도쿄", "Tokyo", "일본경제", "닛케이"];
+              
+              for (const query of japanQueries) {
+                  const encodedQuery = encodeURIComponent(query);
+                  const naverUrl = `https://openapi.naver.com/v1/search/news.json?query=${encodedQuery}&display=10&sort=date`;
+                  
+                  const naverResponse = await axios.get(naverUrl, {
+                      headers: {
+                          'X-Naver-Client-Id': NAVER_CLIENT_ID,
+                          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
+                      },
+                      timeout: 5000
+                  });
+                  
+                  if (naverResponse.data && naverResponse.data.items) {
+                      const japanArticles = naverResponse.data.items.map(item => ({
+                          title: item.title.replace(/<[^>]*>/g, ''),
+                          summary: item.description.replace(/<[^>]*>/g, ''),
+                          content: item.description.replace(/<[^>]*>/g, ''),
+                          url: item.link,
+                          publishedAt: new Date(item.pubDate).toISOString(),
+                          source: '네이버 뉴스 (일본)'
+                      }));
+                      articles = articles.concat(japanArticles);
+                  }
+              }
+              console.log(`Naver API: Added Japan news, total articles: ${articles.length}`);
           } catch (naverError) {
               console.error(`Naver API error:`, naverError.message);
           }
