@@ -483,19 +483,28 @@ async function fetchArticlesForSection(section, freshness) {
    AI-Enhanced Functions (AI 버전 통합)
    ========================================= */
 
-// Web Scraping for Article Content
-async function fetchArticleContent(url) {
+// Web Scraping for Article Content (개선: User-Agent 추가, 타임아웃 증가, 셀렉터 확장, 에러 핸들링 강화)
+async function fetchArticleContent(url, article) {  // article 객체 추가 (대안 콘텐츠 사용 위해)
   try {
-    const { data } = await axios.get(url, { timeout: 5000 });
+    const { data } = await axios.get(url, {
+      timeout: 10000,  // 타임아웃 5초 → 10초 증가
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',  // User-Agent 추가 (403 방지)
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      }
+    });
     const $ = cheerio.load(data);
     let content = '';
-    $('article p, .article-body p, .story-body p, .content p, p').each((i, el) => {
+    // 셀렉터 확장: 더 많은 뉴스 사이트 대응 (e.g., BBC, Reuters, NYT 등)
+    $('article p, .article-body p, .story-body p, .content p, .post-content p, .entry-content p, main p, section p, div[itemprop="articleBody"] p, p').each((i, el) => {
       content += $(el).text().trim() + ' ';
     });
-    return content.trim() || '';
+    return content.trim() || '';  // 여전히 빈 경우 대안 처리 아래에서
   } catch (e) {
     console.error('Scraping failed for', url, ':', e.message);
-    return '';
+    // 대안: 스크래핑 실패 시 원본 article의 description/content 사용 (NewsAPI 제공)
+    return (article.content || article.summary || article.description || '').trim();
   }
 }
 
@@ -732,7 +741,7 @@ app.get("/feed", cacheControl, async (req, res) => {
     let items = await fetchArticlesForSection(section, freshness);
 
     // 2) AI 요약 (병렬, sumLimit 전달)
-    const contents = await Promise.all(items.map(item => fetchArticleContent(item.url)));
+    const contents = await Promise.all(items.map(item => fetchArticleContent(item.url, item)));
     const summaries = await Promise.all(contents.map((content, i) => generateAiSummary(content, lang, sumLimit)));
     items.forEach((item, i) => {
       if (summaries[i] && summaries[i] !== 'Failed to generate summary') item.summary = summaries[i];
