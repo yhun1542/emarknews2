@@ -18,8 +18,9 @@ WORKDIR /app
 # Copy installed node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy application source
+# Copy application source and public directory
 COPY backend_final_merged_jpy100.js frontend_final_merged.html ./
+COPY public/ ./public/
 
 # Environment
 ENV NODE_ENV=production
