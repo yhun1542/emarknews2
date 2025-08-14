@@ -1,0 +1,31 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Article {
+  id           String   @id @default(cuid())
+  url          String   @unique
+  title        String
+  summary      String?
+  source       String
+  language     String?
+  published_at DateTime
+  translations Translation[]
+
+  @@index([published_at])
+}
+
+model Translation {
+  id         String  @id @default(cuid())
+  lang       String
+  text       String
+  article    Article @relation(fields: [articleId], references: [id])
+  articleId  String
+
+  @@index([articleId, lang])
+}
