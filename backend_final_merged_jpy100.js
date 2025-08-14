@@ -80,21 +80,36 @@ try {
         console.warn("TWITTER_BEARER_TOKEN not set. X (Twitter) fetching will be disabled.");
     }
 
+    // 환경변수 디버깅 로그
+    console.log("=== Google Cloud Environment Variables Debug ===");
+    console.log("GOOGLE_PROJECT_ID:", GOOGLE_PROJECT_ID ? "SET" : "NOT SET");
+    console.log("GOOGLE_APPLICATION_CREDENTIALS:", GOOGLE_APPLICATION_CREDENTIALS ? "SET (length: " + GOOGLE_APPLICATION_CREDENTIALS.length + ")" : "NOT SET");
+    
     if (GOOGLE_PROJECT_ID && GOOGLE_APPLICATION_CREDENTIALS) {
         try {
+            console.log("🔄 Attempting to parse Google Cloud credentials...");
             // JSON 문자열을 객체로 파싱 후 다시 포맷팅
             const credentials = JSON.parse(GOOGLE_APPLICATION_CREDENTIALS);
+            console.log("✅ Credentials parsed successfully, project_id:", credentials.project_id);
+            
             const credPath = "/tmp/google-credentials.json";
             fs.writeFileSync(credPath, JSON.stringify(credentials, null, 2));
             process.env.GOOGLE_APPLICATION_CREDENTIALS = credPath;
+            
+            console.log("🔄 Initializing Google Cloud Translation client...");
             translateClient = new TranslationServiceClient();
             console.log("✅ Google Cloud Translation initialized successfully");
         } catch (error) {
             console.error("❌ Failed to initialize Google Cloud Translation:", error.message);
+            console.error("❌ Error details:", error);
             console.warn("Translation will be disabled due to credential parsing error.");
         }
     } else {
-        console.warn("Google Cloud environment variables not set. Translation will be disabled.");
+        console.warn("❌ Google Cloud environment variables not set. Translation will be disabled.");
+        console.log("Missing variables:", {
+            GOOGLE_PROJECT_ID: !GOOGLE_PROJECT_ID,
+            GOOGLE_APPLICATION_CREDENTIALS: !GOOGLE_APPLICATION_CREDENTIALS
+        });
     }
 
     if (!GENERATIVE_AI_API_KEY) {
